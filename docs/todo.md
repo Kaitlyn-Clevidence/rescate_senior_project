@@ -1,408 +1,446 @@
 # Rescate ePCR: master to-do list
 
 **Conventions**
-- `[ ]` open 
-- IDs like `P1-07` are stable for citation
-- Size: **S** ≤ half a day · **M** ≈ 1–2 days · **L** ≈ 3–5 days · **XL** > 1 week (may need to split).
-- `Reqs:` the FR/NFR IDs the task serves. 
+- IDs like `P2-07` are stable for citation
+- Size: **S** ≤ half a day · **M** ≈ 1–2 days · **L** ≈ 3–5 days · **XL** > 1 week (split it).
+- `Reqs:` FR/NFR IDs from the PA-2 spec. 
 - `Dep:` tasks that must finish first. 
 - `Done when:` the check that closes it.
-- Every PR needs a reviewer other than the author (NFR15).
+- Every PR needs a reviewer other than the author (NFR15), a requirement ID, and tests.
+
+**Target architecture (PA-2 §4.1)**
+- Client–server over one HTTPS REST/JSON interface. Client uses MVC (`FormRenderer` view, `ChartController` + hooks `useChart`/`useAuth`).
+- Server is layered: **Security** (`RateLimiter`, `SessionManager`, `PolicyGuard`) → **Services** (10 classes) → **Repositories** (6 classes, the only code that touches the DB) → DB / file storage.
+- External: Email service, legacy MySQL (read once by `MigrationRunner`), backup storage.
 
 ---
 
 ## Phase 0: Foundations and safety net
+
 ### 0.1 Repository and process
-- [x] **P0-01 (S)** Create a `legacy/` snapshot tag on current `main` (`git tag legacy-v1`) so the old code is always recoverable. *Done when:* tag pushed.
-- [ ] **P0-02 (S)** Decide repo layout such as`apps/api`, `apps/web`, `packages/shared` (types, permission map, option codes), `docs/`, `scripts/`, `legacy/` (read-only copy of `backend/` and `frontend/`). Ensure there is documentation in `docs/`.
-- [x] **P0-03 (S)** Protect `main`: require 1 approving review, require status checks, block force-push. Reqs: NFR15.
-- [x] **P0-04 (S)** Add PR template with checklist (tests added, requirement IDs, migration included, translations added, accessibility checked).
-- [ ] **P0-05 (S)** Add `CODEOWNERS` (security-sensitive paths: `auth/`, `policy/`, `migrations/`, `audit/`).
-- [ ] **P0-06 (S)** Add `.editorconfig`, Prettier, ESLint (typescript-eslint, jsx-a11y), and a `lint-staged` + Husky pre-commit hook.
-- [x] **P0-07 (S)** Remove committed noise: `frontend/epcr-system/debug.log`, build artifacts; extend `.gitignore` (`.env`, `attachments/`, coverage, `dist/`).
-- [ ] **P0-08 (M)** GitHub Actions CI: install, lint, typecheck, unit tests with coverage threshold (70% backend), integration tests against a service container database, build. Reqs: NFR14.
-- [ ] **P0-09 (S)** Dependabot (or Renovate) for npm and GitHub Actions.
-- [ ] **P0-10 (S)** Secret scanning and `gitleaks` in CI; confirm no real `.env`, passwords or JWT secrets are in git history (`git log -p -S"JWT_SECRET"`). If any are found, rotate them.
-- [ ] **P0-11 (S)** Issue labels and a project board: `phase-0` … `phase-8`, `security`, `legacy-fix`, `migration`, `a11y`, `i18n`, `blocked`.
-- [ ] **P0-12 (S)** Definition of done (written): tests, docs, translations EN+ES, a11y check, audit event where PHI is touched, requirement ID in the PR.
-- [x] Ensure `main` is not the default branch and must be actively edited or merged for changes
+- [x] **P0-01 (S)** `legacy-v1` tag on `main` so the old code is recoverable.
+- [ ] **P0-02 (S)** Decide repo layout (e.g. `apps/api`, `apps/web`, `packages/shared`, `docs/`, `scripts/`, `legacy/` read-only copy of `backend/` and `frontend/`). Update `docs/repo-map.md`.
+- [x] **P0-03 (S)** Protect `main`: 1 approving review, status checks, no force-push. Reqs: NFR15.
+- [x] **P0-04 (S)** PR template with checklist.
+- [ ] **P0-05 (S)** `CODEOWNERS` for security-sensitive paths (`security/`, `services/auth*`, `repositories/`, `migrations/`, audit).
+- [ ] **P0-06 (S)** `.editorconfig`, Prettier, ESLint (typescript-eslint, jsx-a11y), lint-staged + Husky.
+- [x] **P0-07 (S)** Remove committed noise (`debug.log`, build artifacts); extend `.gitignore`.
+- [ ] determine unittest framework
+- [ ] **P0-08 (M)** GitHub Actions CI: install, lint, typecheck, unit tests with 70% backend coverage gate, integration tests against a DB service container, build. Reqs: NFR14.
+- [ ] **P0-09 (S)** Dependabot for npm and Actions.
+- [ ] **P0-10 (S)** `gitleaks` in CI; scan history for real `.env`, passwords, JWT secrets (`git log -p -S"JWT_SECRET"`); rotate anything found.
+- [ ] **P0-11 (S)** Issue labels and project board: `phase-0`…`phase-9`, `security`, `legacy-fix`, `migration`, `a11y`, `i18n`, `blocked`.
+- [ ] **P0-12 (S)** Written definition of done: tests, docs, EN+ES strings, a11y check, audit event where PHI is touched, requirement ID in the PR.
+- [x] **P0-13 (S)** `main` is not the default branch; changes go through PRs.
 
-### 0.2 Legacy audit (turn assumptions into facts)
-- [ ] **P0-20 (M)** Stand up the legacy system locally exactly as the README says (MySQL, backend `nodemon app.js`, frontend `npm start`). Go through each (pre existing) use case and record any problems in `docs/`.
-- [ ] **P0-21 (M)** Get a sanitized copy of production data (names, phones and addresses scrambled) or a seeded realistic dataset. Never put real PHI in git or on laptops without approval. (Reach out to Bryan but have a plan on how to get it, he does not have technical background)
-- [ ] **P0-22 (M)** Data profiling script: row counts per table, null rates per `charts` column, distinct values for every categorical column (`call_type`, `call_nature`, `location`, `disposition`, `destination`, `trauma_cause`, `care_level`, `p_classify`, `gender`), min/max dates, and the parse success rate of JSON-ish columns (`medications`, `procedures`, `vital_signs`, `obstetrics`). Output `docs/legacy-data-profile.md`.
-- [ ] **P0-23 (S)** List every legacy API endpoint with method, auth requirement and who calls it (frontend file and line). Output a table. *Starting point:* `routes/router.js`, `charts/router.js`, `users/router.js`, `notes/router.js`, `patients/router.js`.
-- [ ] **P0-24 (S)** Inventory legacy frontend screens: route, component, API calls, role visibility. Output a table. *Starting point:* `App.js` route list.
-- [ ] **P0-25 (M)** Extract the complete chart field list from `sql/database.js` and `ChartForm`, `AddCall`, `AddPatient`, `AddInterventions`, `PhysicalAssessment`, `Popup`, `Confirm`. Label each field: visit type (clinic / ambulance / both), required or optional, input type, option list, Spanish label, English label. Output `docs/field-inventory.csv`. This is the seed for form definitions.
-- [ ] **P0-26 (M)** Walk through both workflows with a provider (clinic visit and ambulance call) and record which fields they actually use. Ask which fields they would drop. Reqs: FR5, FR6, NFR12.
-- [ ] **P0-27 (S)** Extract every Spanish string stored as data, from `summary()` in `charts/repository.js` and the frontend option lists, into `docs/option-codes.csv` (column: legacy string, proposed code, EN label, ES label).
-- [ ] **P0-28 (S)** Read `backend/pdf/index.js` and the locale JSON files and list what the printed chart looks like. Get a sample PDF from the sponsor to preserve layout expectations.
-- [ ] **P0-29 (S)** Run `npm audit` on both legacy `package.json` files; record critical items. Note Node version the legacy code needs.
-- [ ] **P0-30 (M)** Security findings list (already known, confirm each by reproducing on a local copy). Each becomes a ticket in 0.3 or a regression test in the new code:
-  - SQL injection: `login`, `register`, `forgot` (`routes/repository.js`), `rate_limiter.js`, `viewChart`, `viewPatientChart`, `summary`, `calls` (`charts/repository.js`), `notes/repository.js`.
-  - Unauthenticated routes: `POST /charts/upload/:id`, `POST /charts/files/:id`, `GET /charts/download/:id/:file`, `GET /charts/:id/pdfTest`.
-  - Path traversal via `chartId` and `file` in `path.join`.
-  - `GET /charts` and `/charts/patients` have no role scoping.
-  - `POST /charts/:id/update` can edit any chart, and uses `req.params` as the id (object, not string).
-  - `jwtCookie()` in `App.js` sets `auth` true even on failure.
-  - JWT lifetime 24 h, no idle timeout, no revocation.
-  - Password policy absent; reset link 1 h.
-  - `logout` clears the cookie but the token stays valid until expiry.
-  - Rate limiter keyed on IP only and fails open on errors.
-  - CORS origin hard-coded to localhost.
+### 0.2 Legacy audit
+- [ ] **P0-20 (M)** Run the legacy system locally per its README; walk each existing use case; record problems in `docs/`.
+- [ ] **P0-21 (M)** Obtain a sanitized copy of production data or a seeded realistic set. No real PHI in git or on laptops without approval. Bryan is non-technical, so plan how to get it (script he runs, or a screen-share).
+- [ ] **P0-22 (M)** Data profiling script → `docs/legacy-data-profile.md`: row counts, null rates per `charts` column, distinct values of categorical columns, date ranges, parse success of JSON-ish columns (`medications`, `procedures`, `vital_signs`, `obstetrics`).
+- [ ] **P0-23 (S)** Table of every legacy API endpoint: method, auth, caller.
+- [ ] **P0-24 (S)** Inventory of legacy frontend screens: route, component, API calls, role visibility.
+- [ ] **P0-25 (M)** Full chart field list from `sql/database.js` and the chart components → `docs/field-inventory.csv`. Label each field by section (maps to §4.2 domain classes), visit type, required/optional, input type, options, EN/ES labels.
+- [ ] **P0-26 (M)** Confirm which sections each of the 10 natures of call requires. Reqs: FR5, FR6, NFR12.
+- [ ] **P0-27 (S)** Extract Spanish strings stored as data → `docs/option-codes.csv` (legacy string, proposed code, EN, ES).
+- [ ] **P0-28 (S)** Document the legacy PDF layout; get a sample PDF from Rescate (if exists)
+- [ ] **P0-29 (S)** `npm audit` on both legacy `package.json`s; note required Node version.
+- [ ] **P0-30 (M)** Reproduce and ticket the known legacy security findings (each becomes a regression test in Phase 8):
+  - SQL injection: `login`, `register`, `forgot`, `rate_limiter.js`, chart/patient views, `summary`, `calls`, `notes`.
+  - Unauthenticated routes: chart upload, files, download, `pdfTest`.
+  - Path traversal via `chartId`/`file`.
+  - No role scoping on `GET /charts`, `/charts/patients`.
+  - `POST /charts/:id/update` edits any chart.
+  - `jwtCookie()` sets `auth` true on failure; 24 h JWT, no idle timeout or revocation; reset link 1 h; no password policy.
+  - Rate limiter keyed on IP only, fails open. CORS hard-coded to localhost.
+- [ ] **P0-31 (S)** Review legacy encryption (passwords, data at rest, in transit) as the interview requested; write findings. Reqs: FR11.
+- [ ] **P0-32 (S)** Recent Node security issues: audit what can and cannot be used 
 
-### 0.4 Backups before anything else (FR10, NFR9)
-- [ ] **P0-31 (S)** Write `scripts/backup-legacy.sh`: `mysqldump --single-transaction --routines` plus a copy of `backend/attachments/`, compressed, with a SHA-256 checksum file.
-- [ ] **P0-32 (M)** Restore test: restore the dump into a scratch MySQL, compare row counts per table and a checksum of a sample of rows. Document the procedure. *Done when:* a second person repeats it from the doc.
-- [ ] **P0-33 (S)** Store backups encrypted (age/gpg) in at least two places; document key custody.
-- [ ] **P0-34 (S)** Schedule daily backups of legacy (cron or host snapshot) until cutover.
+### 0.3 Backups before anything else (FR10, NFR9)
+- [ ] **P0-40 (S)** `scripts/backup-legacy.sh`: `mysqldump --single-transaction --routines` + `backend/attachments/`, compressed, SHA-256 checksum file.
+- [ ] **P0-41 (M)** Restore test into scratch MySQL; compare row counts and sample checksums. *Done when:* a second person repeats it from the doc.
+- [ ] **P0-42 (S)** Encrypt backups (age/gpg), store in ≥2 places, document key custody.
+- [ ] **P0-43 (S)** Daily legacy backup (cron/host snapshot) until cutover.
 
-### 0.5 Decisions to record (ADRs in `docs/adr/`)
-- [ ] **P0-35 (S)** ADR-001: architecture (Option A with offline seams, then B).
-- [ ] **P0-36 (S)** ADR-002: database engine. Keep MySQL 8 (JSON columns, easier ETL) vs move to PostgreSQL (JSONB, GIN indexes, `pg_trgm`). Decide with the sponsor's hosting constraints.
-- [ ] **P0-37 (S)** ADR-003: backend framework and language (TypeScript + Express vs Fastify; Prisma vs Knex).
-- [ ] **P0-38 (S)** ADR-004: frontend stack (React 18 + Vite + TypeScript, UI library, state/query library, i18n, chart library).
-- [ ] **P0-39 (S)** ADR-005: session strategy (cookie session with server-side store vs short JWT + refresh).
-- [ ] **P0-40 (S)** ADR-006: hosting and data residency (where PHI lives, BAA or equivalent, budget). Confirm NOM-024-SSA3-2012 obligations with the sponsor.
-- [ ] **P0-41 (S)** ADR-007: file storage (S3-compatible, MinIO or encrypted disk) and encryption approach.
-- [ ] **P0-42 (S)** ADR-008: the immutability model (app guard + DB rule/trigger + content hash).
+### 0.4 Decisions to record (ADRs in `docs/adr/`)
+- [ ] **P0-50 (S)** ADR-001: layered architecture + client MVC, with offline seams for FR14 
+- [ ] **P0-51 (S)** ADR-002: DB engine. MySQL 8 (matches legacy, easier ETL) vs PostgreSQL. The §4.3 schema is written for MySQL types; confirm with hosting constraints.
+- [ ] **P0-52 (S)** ADR-003: backend language/framework and data access (TypeScript + Express/Fastify; Knex vs Prisma). Repositories must hide this choice.
+- [ ] **P0-53 (S)** ADR-004: frontend stack (React 18 + Vite + TypeScript, UI library, query library, i18n, charts).
+- [ ] **P0-54 (S)** ADR-005: session strategy (server-side sessions with 15-min idle, per `SessionManager`).
+- [ ] **P0-55 (S)** ADR-006: hosting and data residency; NOM-024-SSA3-2012 obligations; budget.
+- [ ] **P0-56 (S)** ADR-007: file storage (S3-compatible/MinIO/encrypted disk) for `Attachment.storageKey`.
+- [ ] **P0-57 (S)** ADR-008: immutability model (no update/delete in `ChartRepository` + DB trigger + content hash).
+- [ ] **P0-58 (S)** ADR-009: draft cache store (`DraftStore`): DB table outside chart tables vs Redis; TTL value.
+- [ ] **P0-59 (S)** ADR-010: trainee/practice data discard on submit.
 
----
+## Phase 1: Design report and course deliverables (due Oct 28)
 
-## Phase 1: Data layer and migration (FR10, NFR2, NFR9)
+- [ ] **P1-03 (S)** Reconcile §4.3 tables with §4.2 domain classes. The 4.3 `charts` table still holds ambulance-ish columns (`location`, `patient_count`, `agencies`, `is_vehicle_accident`, `care_level`, `triage_color`, `incident_*`) that §4.2 puts in `AmbulanceChart`, and 4.3 has `visit_type` vs 4.2 `callType`/`natureOfCall`. Pick one set of names.
 
-### 1.1 New schema
-- [ ] **P1-01 (M)** Draft the ER model: `users`, `auth_tokens`, `patients`, `charts`, `chart_drafts`, `addenda`, `form_definitions`, `attachments`, `audit_log`, `legacy_id_map`. Review with the team.
-- [ ] **P1-02 (S)** Choose ID strategy
-- [ ] **P1-03 (M)** Choose and set up the migration tool (Prisma Migrate / Knex / Flyway). First migration creates all tables with keys, foreign keys and `NOT NULL`s.
-- [ ] **P1-04 (M)** `charts`: indexed columns `incident_date`, `visit_type`, `incident_type`, `patient_id`, `author_id`, `status`, `submitted_at`, `is_practice`; `data` JSON(B) for the rest. Add composite index for dashboard filters.
-- [ ] **P1-05 (M)** Patient search: index `last_name`, `first_name`, `birth_date`; add trigram or full-text index for fuzzy search. Reqs: NFR2.
-- [ ] **P1-06 (S)** Immutability: DB trigger or rule that rejects `UPDATE`/`DELETE` on rows in `charts` and `addenda`; a test proves it. Reqs: FR12.
-- [ ] **P1-07 (S)** `audit_log` is append-only (revoke `UPDATE`/`DELETE` for the app DB user).
-- [ ] **P1-08 (S)** Create separate DB roles: `app_rw` (no DDL), `migrator` (DDL), `reporting_ro` (read replica/reports), `backup`.
-- [ ] **P1-09 (M)** Seed data: roles, an admin user, `form_definitions` v1 for clinic and ambulance, option-code tables, a few fake patients and charts for dev.
-- [ ] **P1-10 (S)** A `make db-reset` (or npm script) that creates, migrates and seeds a local DB in one command.
 
-### 1.2 Option codes and form definitions
-- [ ] **P1-20 (M)** Finalize `option-codes` from P0-27 into a versioned JSON in `packages/shared/options/` (code → `{en, es}`), e.g. `sex.male`, `disposition.transport`, `destination.imss`.
-- [ ] **P1-21 (L)** Turn `field-inventory.csv` into `form_definition` JSON for **clinic** and **ambulance**: sections, fields, types, requiredness, visibility rules, option sets, i18n keys.
-- [ ] **P1-22 (M)** JSON Schema (or zod) for the form-definition format, and a validator used at seed time and by the admin editor later.
-- [ ] **P1-23 (S)** Split sections so none exceeds 10 core fields per screen (NFR12); script that fails CI if a section exceeds it.
-- [ ] **P1-24 (S)** Medication list file (EN/ES names) placeholder for FR31 later.
+## Phase 2: Data layer and migration (FR10, NFR2, NFR9)
 
-### 1.3 ETL from legacy
-- [ ] **P1-30 (S)** `scripts/etl/` project skeleton with config (source DB read-only, target DB), a dry-run flag, and structured logs.
-- [ ] **P1-31 (M)** `extractor`: stream rows from legacy tables with pagination; read-only connection; no writes.
-- [ ] **P1-32 (L)** `transform.patients`: map `fname`/`lname`/`birth`/`gender` → `first_name`/`last_name`/`birth_date`/`sex_code`. Parse `birth` strings (`VARCHAR(30)`) with multiple formats; log failures.
-- [ ] **P1-33 (XL)** `transform.charts`: move indexed fields (`incident_date`, `call_type`, `call_nature`, `trauma_cause`, `disposition`, `destination`, …) to columns; everything else into `data` keyed by field key.
-  - [ ] Convert Spanish display strings to option codes via the mapping; unmapped values stay in `data._unmapped` and are counted.
-  - [ ] Parse `medications`, `procedures`, `vital_signs`, `obstetrics`, `ambulance_crew` text columns into structured arrays; keep the original text under `data._raw` when parsing fails.
-  - [ ] Convert `DATETIME` columns from UTC (the legacy pool uses `timezone: 'utc'`) and record the clinic timezone assumption.
-  - [ ] Set `status = submitted`, `form_version = 0` (legacy), `is_practice = false`, `legacy_id`.
-- [ ] **P1-34 (M)** `transform.notes → addenda`: keep author name, certifications, date; link to the migrated chart. Users may not exist for every note author, so store `author_name` text plus nullable `author_id`.
-- [ ] **P1-35 (M)** `transform.users`: carry over `username`, `email`, `name`, `phone`, `certifications`; map `privilege` → role (`admin` → Admin, `standard` → Provider by default); **do not copy password hashes** unless the team decides bcrypt hashes remain acceptable. Prefer forcing a password reset on first login.
-- [ ] **P1-36 (M)** `transform.attachments`: scan `attachments/<chartId>/`, copy to the new storage with new keys, compute SHA-256, record mime/size, flag files over limits or of disallowed types.
-- [ ] **P1-37 (S)** `legacy_id_map` table (entity, legacy id, new id) written by the loader so a re-run is idempotent.
-- [ ] **P1-38 (M)** `loader`: batch inserts inside transactions, idempotent via `legacy_id_map`, resumable after failure.
-- [ ] **P1-39 (L)** `verify`:
-  - [ ] Row counts per entity and per incident year match.
-  - [ ] Field-by-field comparison on a random sample (e.g. 500 charts) plus all charts with unusual values.
-  - [ ] Every attachment hash matches.
-  - [ ] Report of unmapped values, parse failures and orphan rows (charts without patients and vice versa).
-  - Output: `reports/etl-<timestamp>.md`. *Done when:* the report shows zero unexplained differences. Reqs: FR10.
-- [ ] **P1-40 (S)** Backup gate: the ETL refuses to run unless a verified backup newer than N minutes exists (checks the checksum file from P0-50). Reqs: FR10, NFR9.
-- [ ] **P1-41 (M)** Performance test of the ETL on production-sized data; document run time (needed for the cutover window).
-- [ ] **P1-42 (S)** Rehearse the ETL end to end at least twice before cutover, from backup restore through verify.
+### 2.1 New schema (§4.3)
+- [ ] **P2-01 (M)** ER diagram for the full model: `users`, `patients`, `charts` (+ `ambulance_calls`, `clinic_visits` 1:1 on `chart_id`), `transports`, `chart_crew`, `vehicle_accident`, `wound_care`, `vitals`, `notes`, `attachments`, `chart_forms`, `chart_patient_info`, `assessments`, `physical_exam`, `obstetrics`, `fluid_intake_output`, `medications_given`, `procedures_performed`, `auth tokens`, `chart_drafts` (cache), `audit_log`, `charts_v1_archive`. Review with the team.
+- [ ] **P2-02 (S)** ID strategy: INT PK + `chart_uuid`/`attachment_uuid` CHAR(36) unique for external references; `legacy_chart_id` nullable unique.
+- [ ] **P2-03 (M)** Choose and set up the migration tool; first migration creates all tables with keys, FKs, `NOT NULL`s, ENUMs (`role`, `language_preferred`, `visit_type`, `call_category`).
+- [ ] **P2-04 (M)** `charts` indexes: `incident_date`, `visit_type`/`call_type`, `nature_of_call`, `patient_id`, `created_by`, `submitted_at`, `is_practice`, composite for dashboard filters.
+- [ ] **P2-05 (M)** Patient search indexes (`last_name`, `first_name`, `birth_date`) plus fuzzy/full-text option. Reqs: NFR2.
+- [ ] **P2-06 (S)** Immutability: DB trigger rejecting `UPDATE`/`DELETE` on `charts` and all section tables once submitted; test proves it. Reqs: FR12.
+- [ ] **P2-07 (S)** `audit_log` append-only (revoke UPDATE/DELETE from the app DB user).
+- [ ] **P2-08 (S)** Separate DB roles: `app_rw` (no DDL), `migrator`, `reporting_ro`, `backup`.
+- [ ] **P2-09 (M)** Seed data: an admin user, a user per role, fake patients and charts for dev, option-code tables.
+- [ ] **P2-10 (S)** One-command local DB create/migrate/seed.
+- [ ] **P2-11 (S)** Chart `submitted_at` set only on submit; `needs_review` flag column in place for FR15.
 
----
+### 2.2 Option codes and form definitions
+- [ ] **P2-20 (M)** Option codes from P0-27 into versioned JSON in `packages/shared/options/` (code → `{en, es}`).
+- [ ] **P2-21 (L)** Turn `field-inventory.csv` into form definitions for **clinic** and **ambulance**, keyed by nature of call (10 types): sections, fields, required sections, visibility rules, option sets, i18n keys. This is the data `FormDefinitionService.requiredSections()` serves.
+- [ ] **P2-22 (M)** Schema (zod/JSON Schema) for the form-definition format and a validator used at seed time.
+- [ ] **P2-23 (S)** CI check: no screen/section exceeds 10 core fields. Reqs: NFR12.
+- [ ] **P2-24 (S)** Medication list file (EN/ES) placeholder for FR31.
 
-## Phase 2: Backend core (apps/api)
-
-### 2.1 Scaffolding
-- [ ] **P2-01 (M)** TypeScript project, `tsconfig` strict, path aliases, build and dev scripts, health endpoint `/healthz`.
-- [ ] **P2-02 (M)** Config module: typed env loading with validation (zod); startup fails on missing secrets; separate `.env.example` with no real values.
-- [ ] **P2-03 (S)** Logging (pino) with request IDs; redact passwords, tokens and PHI fields from logs.
-- [ ] **P2-04 (S)** Central error handler: consistent JSON errors, no stack traces in production, no internal error text to clients (legacy returns raw `err`).
-- [ ] **P2-05 (S)** Security middleware: `helmet` (legacy lists it but never uses it), strict CORS from config, body size limits, `HttpOnly`/`Secure`/`SameSite` cookies.
-- [ ] **P2-06 (M)** Request validation middleware using zod schemas per route.
-- [ ] **P2-07 (S)** Database module: connection pool, transaction helper, graceful shutdown.
-- [ ] **P2-08 (S)** Module template (`routes`, `service`, `repository`, `schemas`, `tests`) so every module looks the same.
-- [ ] **P2-09 (S)** OpenAPI spec generated from the zod schemas; served at `/docs` in development only.
-- [ ] **P2-10 (S)** Test harness: Vitest or Jest, supertest, a test database that is reset per run, factory helpers for users/charts.
-
-### 2.2 Authentication and sessions (FR1, FR3, FR4, NFR6, NFR7)
-- [ ] **P2-20 (M)** Password hashing util: Argon2id (or bcrypt cost ≥12); unit tests include timing-safe compare.
-- [ ] **P2-21 (S)** Password policy validator: ≥12 chars, at least one special character; also reject common passwords list. Shared with the frontend via `packages/shared`.
-- [ ] **P2-22 (M)** `POST /auth/login`: constant-time on unknown user; generic error message; lockout or backoff after N failures; audit event.
-- [ ] **P2-23 (M)** Sessions: server-side session store keyed by random ID, 15-minute sliding idle timeout, absolute max (e.g. 12 h), rotate ID at login. Reqs: NFR7.
-- [ ] **P2-24 (S)** `POST /auth/logout` destroys the session server-side (legacy only clears the cookie).
-- [ ] **P2-25 (S)** CSRF protection (double-submit token or SameSite=strict plus custom header) for state-changing routes.
-- [ ] **P2-26 (M)** `auth_tokens` table logic: generate random token, store only its hash, 10-minute expiry, single use. Reqs: FR3, FR4.
-- [ ] **P2-27 (M)** `POST /auth/setup` (complete account setup) and `POST /auth/reset/request`, `POST /auth/reset/confirm`. Request endpoint always returns the same response whether or not the email exists.
-- [ ] **P2-28 (S)** Admin-triggered reset for any user (FR4): `POST /users/:id/reset`.
-- [ ] **P2-29 (S)** Rate limit login and reset endpoints (library, with Redis or in-memory store; fail closed).
-- [ ] **P2-30 (S)** `GET /auth/me` returns the user, role and permissions for the client.
-- [ ] **P2-31 (M)** Tests: expired link at 10:01 rejected; link at 9:59 works; second use rejected; user can log in right after reset; idle at 15:01 returns 401; password policy cases.
-
-### 2.3 Authorization (FR2)
-- [ ] **P2-40 (M)** Permission map in `packages/shared`: roles Admin, Provider, Board, Trainee × permissions (`chart.create`, `chart.read`, `chart.search`, `addendum.create`, `dashboard.read`, `user.manage`, `form.manage`, `export.read`, `audit.read`, `settings.manage`). Source of truth for client and server.
-- [ ] **P2-41 (M)** `authorize(permission)` middleware; default deny; every route must declare a permission (a test fails if a route lacks one).
-- [ ] **P2-42 (M)** Row-level rules in services: Provider sees all real charts; Trainee only their own `is_practice` charts; Board never receives chart-level data, only aggregates.
-- [ ] **P2-43 (M)** Matrix test: for every role × every route, assert allowed/denied and the denial message (FR2 acceptance).
-- [ ] **P2-44 (S)** Access-denied responses (403) with a stable error code the client can display in EN/ES.
-
-### 2.4 Users and accounts (FR1, FR3)
-- [ ] **P2-50 (M)** `POST /users` (admin): create with email, name, role; creates a setup token and sends the email.
-- [ ] **P2-51 (S)** `PATCH /users/:id` (admin): change role, activate/deactivate; audit the change.
-- [ ] **P2-52 (S)** `GET /users`, `GET /users/:id` with role-based field limits (Board/Provider see names only if needed).
-- [ ] **P2-53 (S)** Self-service `PATCH /users/me` (language preference, phone, display name). Reqs: FR8.
-- [ ] **P2-54 (S)** Never hard-delete users who authored charts; deactivate instead. Replace the legacy `deleteUser` and `deleteSelf` behavior.
-- [ ] **P2-55 (M)** Provider certifications field (legacy `certifications`, shown on notes): keep as a user attribute, snapshot onto chart and addendum at write time.
-- [ ] **P2-56 (M)** Mail service: SMTP provider config (replace the personal Gmail account), HTML+text templates in EN/ES, link built from `FRONTEND_URL`, send failures logged and surfaced to the admin.
-
-### 2.5 Forms (FR5, FR6, FR30, NFR12)
-- [ ] **P2-60 (M)** `GET /forms/:visitType` returns the active form definition plus option labels in the requested language.
-- [ ] **P2-61 (M)** Form validation engine: given a definition and `data`, return field-level errors (required, type, ranges, option membership, conditional visibility).
-- [ ] **P2-62 (S)** Ensure fields not in the selected visit type's definition are rejected (FR6: "no unnecessary fields").
-- [ ] **P2-63 (M)** Admin endpoints to add a timestamp or text field to a form (creates a new version; old charts keep their version). Reqs: FR30.
-- [ ] **P2-64 (S)** Version rules: new version never alters existing charts; a chart stores `form_version`.
-- [ ] **P2-65 (M)** Unit tests for each validation rule and for the clinic vs ambulance field separation (FR5).
-
-### 2.6 Charts, drafts, addenda (FR7, FR12, FR13)
-- [ ] **P2-70 (M)** Drafts: `PUT /drafts/:id` upsert (owner only), `GET /drafts/:id`, `GET /drafts` (own), `DELETE /drafts/:id`; store with `expires_at`; touching extends TTL. Reqs: FR13.
-- [ ] **P2-71 (S)** Draft cleanup job removes expired drafts (and the policy for what "expired" means; at least 5 minutes of recoverability, longer is fine).
-- [ ] **P2-72 (L)** `POST /charts` (submit from draft): validate with the form definition, create the patient or link an existing one, write the chart in one transaction, delete the draft, write an audit event.
-- [ ] **P2-73 (M)** Trainee path: same flow but `is_practice = true`, never visible to Providers' lists, dashboards or exports.
-- [ ] **P2-74 (M)** `GET /charts/:id`: role-checked, audits the read (who looked at which chart), returns the form version used and labels.
-- [ ] **P2-75 (L)** `GET /charts` search: filters (patient name, date range, visit type, incident type, author), pagination, sort; uses indexes; response time ≤ 2 s at 50,000 rows (NFR2); add a benchmark script.
-- [ ] **P2-76 (M)** No update or delete route for charts. A test asserts `PUT/PATCH/DELETE /charts/:id` return 404/405 and the DB trigger blocks direct updates. Reqs: FR12.
-- [ ] **P2-77 (M)** `POST /charts/:id/addenda`, `GET /charts/:id/addenda`. Providers and Admins only. Store author, role snapshot, certifications snapshot, timestamp. Reqs: FR7, FR12.
-- [ ] **P2-78 (S)** Patient lookup/link when starting a chart (avoid duplicate patients); simple duplicate warning on name + birth date.
-- [ ] **P2-79 (S)** Auto-incrementing human-readable incident number (the legacy `getChartNumber` endpoint does this): make it atomic with a sequence to avoid duplicates under concurrent submits.
-- [ ] **P2-80 (S)** Concurrency test: 25 simultaneous users submitting and searching with ≤10% response-time increase (NFR3).
-
-### 2.7 Attachments and signatures (FR16, FR17)
-- [ ] **P2-90 (M)** Storage adapter interface (`put`, `get`, `delete`, `signedUrl`) with a local-disk and an S3/MinIO implementation.
-- [ ] **P2-91 (M)** Upload endpoint with auth, size limit (e.g. 10 MB; confirm), type allow-list by **content sniffing** (not only extension), image re-encoding to strip metadata, virus scan hook.
-- [ ] **P2-92 (S)** Download endpoint: authorize against the chart, stream with `Content-Disposition`, no user-supplied paths ever reach the file system.
-- [ ] **P2-93 (S)** Attachments allowed only while the chart is a draft or as an addendum attachment after submission (never mutate a submitted chart).
-- [ ] **P2-94 (M)** Signature capture storage: PNG + hash + signer name + timestamp + language of the consent text, linked to the chart. Reqs: FR16.
-
-### 2.8 Audit, reports, export (FR11, FR18, FR20)
-- [ ] **P2-100 (M)** `AuditLogger` service called from the auth middleware (login success/failure, logout), chart read/search/submit, addendum, user and role changes, exports. Record user, action, entity, id, IP, user agent, time.
-- [ ] **P2-101 (S)** `GET /audit` (admin) with filters and pagination; export CSV.
-- [ ] **P2-102 (L)** `ReportService.summary(filters)`: SQL aggregates (`GROUP BY` option codes) for sex, age class, call nature, location, disposition, destination, trauma cause, procedures; date range, visit type and incident type filters. Replaces the 150-line `summary()` counter code.
-- [ ] **P2-103 (M)** Trends: compare current period to previous period, return delta and direction for each metric. Reqs: FR18.
-- [ ] **P2-104 (M)** Plain-language summary generator (templates in EN/ES: "Falls rose 18% compared with last month"). Reqs: FR18.
-- [ ] **P2-105 (M)** CSV export (streamed) and PDF export (pdfkit, ported from `backend/pdf/index.js`, with the EN/ES locale files). Board gets aggregate exports only. Reqs: FR20.
-- [ ] **P2-106 (M)** Single-chart PDF export with all addenda appended, EN or ES. Remove the client-side `html2canvas/jsPDF` path.
-- [ ] **P2-107 (S)** Dashboard metrics config file so FR19 changes need no code change (metric key, source field, chart type, label keys).
-
-### 2.9 Operations in the API
-- [ ] **P2-110 (S)** Backup job script and scheduler (daily, retention policy), restore script, and alert on failure. Reqs: NFR9.
-- [ ] **P2-111 (S)** Pre-migration hook in the deploy pipeline: take a backup, verify, then run migrations; abort deploy if the backup fails. Reqs: FR10, NFR9.
-- [ ] **P2-112 (S)** Encrypted-at-rest settings documented and verified (database volume, object storage, backups). Reqs: FR11.
-- [ ] **P2-113 (S)** Enforce HTTPS, HSTS and TLS ≥1.2 at the proxy; test with `testssl.sh`. Reqs: NFR5.
+### 2.3 Migration: `MigrationRunner` + `LegacyArchiveRepository`
+- [ ] **P2-30 (S)** `scripts/etl/` skeleton: config (source read-only, target), dry-run flag, structured logs.
+- [ ] **P2-31 (M)** `backup()`: wraps P0-40; records path and checksum; fails if backup fails. Reqs: NFR9.
+- [ ] **P2-32 (M)** `migrate()` step 1: copy raw legacy rows to `charts_v1_archive` via `LegacyArchiveRepository.insertRaw(entity, legacyId, rawRow)`. Read-only safety net, never modified.
+- [ ] **P2-33 (L)** Transform patients (`fname`/`lname`/`birth`/`gender` → `first_name`/`last_name`/`birth_date`/`gender`); parse multi-format dates; log failures.
+- [ ] **P2-34 (XL)** Transform charts into `Chart` + `AmbulanceChart`/`ClinicChart` + section tables, set `legacy_chart_id`, `submitted_at`, `needs_review` where data is incomplete. Split into:
+  - [ ] Map Spanish display strings to option codes; unmapped values counted and kept in archive.
+  - [ ] Parse `medications`, `procedures`, `vital_signs`, `obstetrics`, `ambulance_crew` text into `MedicationGiven`, `ProcedurePerformed`, `Vital`, `Obstetrics`, `CrewMember` rows; on parse failure keep raw text in a note and flag `needs_review`.
+  - [ ] Convert datetimes from UTC (legacy pool uses `timezone: 'utc'`); record clinic timezone assumption.
+- [ ] **P2-35 (M)** Transform notes → `notes`. Authors may not exist as users: keep author name text plus nullable `user_id`.
+- [ ] **P2-36 (M)** Transform users: carry `username`, `email`, `name`, `phone`, `certifications`; map `privilege` → role. Do not copy password hashes; force a reset on first login.
+- [ ] **P2-37 (M)** Transform attachments: copy files to new storage with new keys, SHA-256, size/type, flag violations of limits.
+- [ ] **P2-38 (M)** Idempotent, resumable loader using `legacy_chart_id`/id map; batch transactions.
+- [ ] **P2-39 (L)** `verifyCounts()` + deeper verify: counts per entity and per year, field-by-field on a random sample (~500 charts) plus unusual ones, attachment hashes, orphan report. Output `reports/etl-<timestamp>.md`. *Done when:* zero unexplained differences. Reqs: FR10.
+- [ ] **P2-40 (S)** Backup gate: ETL refuses to run without a verified backup newer than N minutes. Reqs: FR10, NFR9.
+- [ ] **P2-41 (M)** Time the ETL on production-sized data (needed for cutover window).
+- [ ] **P2-42 (S)** Rehearse the full ETL twice (restore → migrate → verify) before cutover.
 
 ---
 
-## Phase 3: Frontend (apps/web)
+## Phase 3: Backend core
 
 ### 3.1 Scaffolding
-- [ ] **P3-01 (M)** React 18 + Vite + TypeScript, ESLint with a11y rules, Vitest + Testing Library, Playwright for end-to-end.
-- [ ] **P3-02 (S)** Pick one UI library (e.g. MUI v5 or a headless library + CSS variables); remove Bootstrap and MUI v4 mixing.
-- [ ] **P3-03 (M)** Design tokens: colors meeting 4.5:1, 16 px base font, spacing, radii, focus ring; light, dark, and high-contrast themes. Reqs: NFR11, FR24, FR26.
-- [ ] **P3-04 (S)** One API client (`fetch` wrapper) with base URL from env, CSRF header, JSON errors, 401 handling that sends the user to login, and typed responses from the shared package.
-- [ ] **P3-05 (S)** Data fetching with TanStack Query: caching, retries, loading and error states.
-- [ ] **P3-06 (M)** App shell: header, nav by role, language toggle, theme toggle, user menu, session-expiry warning dialog at 14 minutes.
-- [ ] **P3-07 (M)** Routing with role-aware guards driven by the permission map; unknown or forbidden routes show an access-denied page (FR2).
-- [ ] **P3-08 (S)** Idle timer: after 15 minutes of inactivity, clear client state and go to login. Reqs: NFR7.
+- [ ] **P3-01 (M)** TypeScript project, strict config, build/dev scripts, `/healthz`.
+- [ ] **P3-02 (M)** Typed env config (zod); fail on missing secrets; `.env.example` with no real values.
+- [ ] **P3-03 (S)** Logging (pino) with request IDs; redact passwords, tokens, PHI.
+- [ ] **P3-04 (S)** Central error handler: consistent JSON, no stack traces or raw DB errors to clients.
+- [ ] **P3-05 (S)** `helmet`, strict CORS from config, body size limits, `HttpOnly`/`Secure`/`SameSite` cookies.
+- [ ] **P3-06 (M)** Per-route zod validation middleware.
+- [ ] **P3-07 (S)** DB module: pool, transaction helper, graceful shutdown.
+- [ ] **P3-08 (S)** Module template (`routes`, `service`, `repository`, `schemas`, `tests`) so layering is enforced by structure. Lint rule: routes may not import repositories; services may not import the DB driver.
+- [ ] **P3-09 (S)** OpenAPI spec from zod schemas, served in dev only.
+- [ ] **P3-10 (S)** Test harness: Vitest/Jest, supertest, per-run test DB, factories.
 
-### 3.2 i18n and accessibility (FR8, NFR11)
-- [ ] **P3-10 (M)** Move `locales/en|es/translation.json` into namespaces; add option-label catalogs keyed by option code from `packages/shared`.
-- [ ] **P3-11 (S)** Language toggle persists to the user's profile (fixes legacy forced `'es'` default) and falls back to the browser language before login.
-- [ ] **P3-12 (S)** Lint rule or script that fails CI when a key exists in `en` but not `es`, or vice versa.
-- [ ] **P3-13 (M)** Dates, numbers and units formatted by locale (Intl) not by string.
-- [ ] **P3-14 (M)** Accessibility pass: labels on all inputs, focus order, keyboard-only use, ARIA live regions for save/sync messages, touch targets ≥44 px, `axe` checks in CI.
-- [ ] **P3-15 (S)** Contrast test across all themes in CI (token pairs ≥4.5:1).
-- [ ] **P3-16 (M)** Spanish review by fluent providers (FR8 acceptance). Keep a checklist of screens and their sign-off.
+### 3.2 Repositories layer (only code that touches the DB; NFR2)
+- [ ] **P3-20 (M)** `UserRepository`: `findByEmail`, `create`, `updateRole`, `saveToken`, `consumeToken(tokenHash)` (atomic, single use).
+- [ ] **P3-21 (S)** `PatientRepository`: `create`, `findByName(name, birthDate)`.
+- [ ] **P3-22 (L)** `ChartRepository`: `insertSubmitted(chart)` writes chart + subclass row + optional transport + all section rows in **one transaction**; `findByUuid` loads the right subclass; `search(filters, page)`. **No update or delete method exists.** Reqs: FR7, FR12.
+- [ ] **P3-23 (S)** `NoteRepository`: `insert`, `listByChart` (append-only).
+- [ ] **P3-24 (S)** `AttachmentRepository`: `insert`, `findByUuid`.
+- [ ] **P3-25 (S)** `LegacyArchiveRepository` (shared with P2-32).
+- [ ] **P3-26 (M)** Repository integration tests against a real DB, including a test that the transaction rolls back if any section row fails.
 
-### 3.3 Authentication screens
-- [ ] **P3-20 (M)** Login page: validation, error states, language toggle, link to reset.
-- [ ] **P3-21 (M)** Account setup page (from emailed link): password rules checklist updating live, expired-link state with "request new link".
-- [ ] **P3-22 (S)** Forgot password and reset-confirm pages.
-- [ ] **P3-23 (S)** Replace the `jwtCookie`/`getUsername` startup checks with a single `useAuth()` hook that calls `/auth/me`.
+### 3.3 Security layer: `RateLimiter`, `SessionManager`, `PolicyGuard`
+- [ ] **P3-30 (M)** `PolicyGuard` + permission map in `packages/shared`: roles Admin, Provider, Board, Trainee × permissions (`chart.create`, `chart.read`, `chart.search`, `addendum.create`, `dashboard.read`, `user.manage`, `form.manage`, `export.read`, `audit.read`, `settings.manage`). `can(role, permission)`, `authorize(permission)`; **deny by default**. `User.can()` delegates here. Reqs: FR2.
+- [ ] **P3-31 (M)** Middleware: every route must declare a permission; a test fails if a route lacks one.
+- [ ] **P3-32 (M)** `SessionManager`: `authenticate(request)`, `touch(sessionId)`; server-side store; **15-minute idle** expiry; absolute max (e.g. 12 h); new ID at login. Reqs: FR1, NFR7.
+- [ ] **P3-33 (S)** CSRF protection for state-changing routes.
+- [ ] **P3-34 (S)** `RateLimiter`: `hit(key)`, `isBlocked(key)` on IP + account for login and reset; **fails closed**; replaces the V1 `rate_limiters` table. Reqs: FR11, NFR6.
+- [ ] **P3-35 (M)** Role × route matrix test asserting allow/deny and error code. Reqs: FR2.
+- [ ] **P3-36 (S)** 403 responses carry a stable error code the client translates to EN/ES.
 
-### 3.4 Chart entry (FR5, FR6, FR22, NFR12, NFR13)
-- [ ] **P3-30 (M)** Visit-type picker (Clinic Visit / Ambulance Call) with large touch cards.
-- [ ] **P3-31 (L)** `FormRenderer`: render sections and fields from the form definition; supports text, number, select, multiselect, radio, checkbox, date, time/timestamp, body-region picker (from `PhysicalAssessment.js`), repeating rows (medications, procedures, vitals).
-- [ ] **P3-32 (M)** Client-side validation using the same definition rules; inline errors; focus the first error.
-- [ ] **P3-33 (M)** Stepper navigation with progress; at most 10 fields per step.
-- [ ] **P3-34 (M)** Timestamp and reference sidebar: dispatch, en route, arrive, patient contact, depart, arrive at destination, transfer; incident number; unit; visible across all steps. Reqs: FR22.
-- [ ] **P3-35 (M)** Patient step: search existing patient or create new; duplicate warning.
-- [ ] **P3-36 (L)** Interventions step: medications, procedures, vitals as repeating rows, with spell-check hook ready for FR31.
-- [ ] **P3-37 (M)** Review screen: read-only summary, missing required fields listed with links back, final submit with confirm dialog.
-- [ ] **P3-38 (M)** Autosave: debounce, show "Saved at hh:mm" or "Not saved", save to the server and to a local fallback; restore prompt on return within the TTL. Reqs: FR13.
-- [ ] **P3-39 (S)** Trainee mode: banner "Practice chart: not saved to patient records", distinct color accent, a different submit label. Reqs: FR23.
-- [ ] **P3-40 (M)** Attachment step: choose/capture images, size and type feedback, thumbnails, remove before submit. Reqs: FR17.
-- [ ] **P3-41 (M)** Consent/AMA signature step: signature pad (touch and stylus), language switch for the consent text, clear/redo, attached to chart. Reqs: FR16.
+### 3.4 Services layer
+**Accounts and auth (FR1, FR3, FR4, NFR6)**
+- [ ] **P3-40 (M)** `AuthService`: `login`, `logout` (destroys session server-side); Argon2id/bcrypt ≥12; constant-time on unknown user; generic error; records login events. Reqs: FR1, FR11, NFR6.
+- [ ] **P3-41 (S)** Password policy: ≥12 chars with special character; common-password reject; shared with frontend.
+- [ ] **P3-42 (M)** `AccountService`: `createUser(email, role)`, `changeRole`, `requestReset(email)`, `completeSetup(token, password)`; random token, only hash stored, **10-minute TTL, single use**. Reset request returns the same response whether or not the email exists. Reqs: FR3, FR4.
+- [ ] **P3-43 (S)** Admin reset for any user; self-service profile update (language, phone, name). Deactivate, never hard-delete, users who authored charts (`User.deactivate()`).
+- [ ] **P3-44 (M)** `MailService`: `sendSetup`, `sendReset`; SMTP provider (not a personal Gmail), EN/ES templates, links built from `FRONTEND_URL`, failures logged and shown to admin. Reqs: FR3, FR4, FR8.
+- [ ] **P3-45 (M)** Tests: link at 10:01 rejected, 9:59 works, second use rejected, login works right after reset, idle at 15:01 → 401, password policy cases.
 
-### 3.5 Browsing and addenda (FR7, FR12)
-- [ ] **P3-50 (M)** Chart list: search box, filters, pagination, sort, empty and error states; role-limited columns.
-- [ ] **P3-51 (M)** Chart detail: read-only, grouped by section, shows form version, author, submitted time, attachments, addenda in order; no edit controls anywhere.
-- [ ] **P3-52 (S)** Add addendum panel (Provider/Admin only) with confirmation; appears immediately in the list.
-- [ ] **P3-53 (S)** Print and PDF download buttons (server PDF, current language).
+**Forms (FR5, FR6, FR30, NFR12)**
+- [ ] **P3-50 (M)** `FormDefinitionService`: `getForm(callType, natureOfCall)` in requested language, `requiredSections(...)`.
+- [ ] **P3-51 (M)** `validate(callType, natureOfCall, data)`: required, type, range, option membership, conditional rules (e.g. `traumaCause` required when nature is trauma; `Obstetrics` required for OB; `MedicationGiven` required for injections; consent form required for every nature).
+- [ ] **P3-52 (S)** Reject fields not in the selected visit type's definition (FR6).
+- [ ] **P3-53 (M)** `addField(field)` for admins (timestamp, text) creates a new form version; existing charts keep theirs; chart stores `formVersion`. Reqs: FR30 (Level 3).
+- [ ] **P3-54 (M)** Unit tests for each rule and for clinic vs ambulance separation.
 
-### 3.6 Dashboard (FR18, FR20, FR19)
-- [ ] **P3-60 (M)** Filter bar (date range, visit type, incident type) bound to URL query params so views are shareable.
-- [ ] **P3-61 (L)** Metric cards with trend arrow and plain-language summary; bar/line/pie charts using one maintained library; accessible text alternative for each chart.
-- [ ] **P3-62 (S)** Export buttons (PDF and CSV) for the current filter.
-- [ ] **P3-63 (S)** Board-role view of the dashboard only; hides chart links.
-- [ ] **P3-64 (S)** Metric definitions read from the server config (P2-107) so metrics can change after sponsor review.
+**Charts, drafts, addenda (FR7, FR12, FR13)**
+- [ ] **P3-60 (M)** `DraftStore`: `put`, `get`, `discard`; owner-only; `expiresAt`; touching extends TTL; recoverable for ≥5 min. Lives outside chart tables. Reqs: FR13.
+- [ ] **P3-61 (S)** Expired-draft cleanup job.
+- [ ] **P3-62 (L)** `ChartService.createDraft` and `submit(user, draftId)`: build the correct `Chart` subclass from `callType`, attach only the sections the nature of call requires, validate, link/create patient (duplicate warning on name + birth date), save through `ChartRepository.insertSubmitted`, delete the draft, audit event. `Chart.isEditable()` is always false.
+- [ ] **P3-63 (M)** `ChartService.get(user, chartUuid)`: role-checked; audit who read which chart; returns form version and labels.
+- [ ] **P3-64 (L)** `ChartService.search(user, filters, page)`: name, date range, call type, nature, author; pagination, sort; **≤ 2 s at 50,000 charts**; benchmark script. Reqs: NFR2.
+- [ ] **P3-65 (S)** No update/delete routes; test that `PUT/PATCH/DELETE /charts/:id` return 404/405 and the trigger blocks direct SQL. Reqs: FR12.
+- [ ] **P3-66 (M)** `AddendumService`: `add(user, chartUuid, text)`, `listForChart`; Provider/Admin only; stores author, role and certifications snapshot, timestamp. Reqs: FR7, FR12.
+- [ ] **P3-67 (S)** Atomic human-readable `incidentNumber` (sequence) to avoid duplicates under concurrent submits.
+- [ ] **P3-68 (M)** Trainee path (see ADR-010): practice charts never appear in provider lists, dashboards or exports, and never reach production tables if the discard model is chosen. Reqs: FR23.
+- [ ] **P3-69 (S)** Timeline helpers: `AmbulanceChart.timeline()`, `isTimelineInOrder()`, `ClinicChart.timeline()`, `lengthOfStay()` feeding the sidebar. Reqs: FR22.
 
-### 3.7 Admin
-- [ ] **P3-70 (M)** User table: search, role dropdown (4 roles), active toggle, "send setup link" and "reset password" actions, status badges (pending, active, disabled).
-- [ ] **P3-71 (S)** Create-user dialog with email, name, role.
-- [ ] **P3-72 (M)** Audit log viewer with filters.
-- [ ] **P3-73 (M)** Form field manager (Level 3: add timestamp/text fields). Reqs: FR30.
-- [ ] **P3-74 (S)** Settings page: language, theme, session information.
+**Consent, attachments (FR16, FR17)**
+- [ ] **P3-70 (M)** Storage adapter (`put`, `get`, `delete`, `signedUrl`): local-disk and S3/MinIO implementations.
+- [ ] **P3-71 (M)** `AttachmentService.upload`: auth, size limit (confirm; interviews say EKG/medication-list images only), allow-list by content sniffing, strip metadata, virus scan hook. `download(user, attachmentUuid)` authorizes against the chart; no user-supplied paths touch the FS.
+- [ ] **P3-72 (S)** Attachments only on drafts, or as addendum attachments after submit; never mutate a submitted chart.
+- [ ] **P3-73 (M)** `ConsentFormService.sign(user, chartUuid, formType, language, signature)`: signature PNG + hash + signer name + timestamp + `textVersion`; `listForChart`. Reqs: FR16.
 
-### 3.8 Retire legacy frontend
-- [ ] **P3-80 (S)** Feature parity checklist against P0-24 (every old screen has a new equivalent or an explicit "dropped" decision).
-- [ ] **P3-81 (S)** Remove canvasjs, jspdf, html2canvas, moment, bootstrap, and MUI v4 once nothing uses them.
+**Audit and reports (FR11, FR18–FR20)**
+- [ ] **P3-80 (M)** `AuditLogger.record(event)` called from auth, chart read/search/submit, addendum, user/role changes, exports: user, action, entity, id, IP, user agent, time. `query(filters)` for admins.
+- [ ] **P3-81 (L)** `ReportService.summary(filters)` via SQL aggregates (sex, age class, nature of call, disposition, trauma cause, procedures, response times); filters: date range, visit type, incident type. Board gets aggregates only. Reqs: FR18.
+- [ ] **P3-82 (M)** `trend(filters)`: current vs previous period, delta and direction.
+- [ ] **P3-83 (M)** Plain-language summaries (EN/ES templates).
+- [ ] **P3-84 (M)** `exportCsv`, `exportPdf` (pdfkit, port of legacy layout, EN/ES); single-chart PDF with addenda appended. Reqs: FR20.
+- [ ] **P3-85 (S)** Dashboard metrics in a config file so FR19 changes need no code.
 
----
-
-## Phase 4: Security and compliance (FR11, FR21, NFR4–NFR7)
-
-- [ ] **P4-01 (M)** Threat model workshop (STRIDE on the system diagram): assets (PHI, credentials), actors, entry points. Output `docs/threat-model.md`.
-- [ ] **P4-02 (S)** Map each HIPAA technical safeguard (access control, audit controls, integrity, transmission security) to a feature or control in a table.
-- [ ] **P4-03 (M)** Review NOM-024-SSA3-2012 requirements with the sponsor and compliance adviser; list what applies (record structure, identifiers, catalogs, retention) and create tickets for any gaps. Do not claim compliance without sign-off.
-- [ ] **P4-04 (S)** Data classification: mark each field as PHI/identifier/other; drives log redaction and export rules.
-- [ ] **P4-05 (S)** Retention policy and deletion rules agreed with the sponsor (charts are immutable; how long to keep; what "right to access" requests look like).
-- [ ] **P4-06 (M)** Run OWASP ZAP baseline scan against a staging deployment; triage and fix findings.
-- [ ] **P4-07 (S)** `npm audit` and dependency review in CI; fail on high/critical.
-- [ ] **P4-08 (S)** Secrets management: environment secrets in the host/secret store, rotation procedure, no secrets in images.
-- [ ] **P4-09 (S)** Verify cookies: `HttpOnly`, `Secure`, `SameSite`; verify headers with a scanner (CSP, HSTS, X-Content-Type-Options, Referrer-Policy).
-- [ ] **P4-10 (M)** Access-log review procedure: who reviews, how often, how to investigate; test it with a mock incident.
-- [ ] **P4-11 (S)** Incident response checklist (breach, lost tablet, account compromise), one page, includes contacts.
-- [ ] **P4-12 (S)** Backup security: encryption, access list, restore drill every quarter.
-- [ ] **P4-13 (S)** Penetration-style test checklist run by a teammate who did not write the code: privilege escalation between all role pairs, IDOR on chart/attachment IDs, token reuse, session fixation.
-- [ ] **P4-14 (S)** Confirm no PHI in logs, URLs (query strings), error messages or analytics.
+### 3.5 Operations in the API
+- [ ] **P3-90 (S)** Daily backup job + retention + restore script + failure alert. Reqs: NFR9.
+- [ ] **P3-91 (S)** Pre-migration hook in deploy: backup, verify, then migrate; abort on failure.
+- [ ] **P3-92 (S)** Document and verify encryption at rest (DB volume, object storage, backups). Reqs: FR11.
+- [ ] **P3-93 (S)** HTTPS, HSTS, TLS ≥1.2 at the proxy; test with `testssl.sh`. Reqs: NFR5.
 
 ---
 
-## Phase 5: Testing and quality (NFR13, NFR14)
+## Phase 4: Frontend (React, MVC)
 
-- [ ] **P5-01 (M)** Unit tests: services (chart lifecycle, form validation, policy, tokens, password policy) to ≥70% backend coverage; coverage gate in CI.
-- [ ] **P5-02 (M)** Integration tests: each endpoint with real DB; includes immutability, 10-minute links, search limits, concurrency.
-- [ ] **P5-03 (M)** Contract tests: the OpenAPI spec vs the frontend client types (generate the client from the spec).
-- [ ] **P5-04 (L)** Playwright end-to-end flows: login → clinic chart → submit → addendum; ambulance chart with autosave and recovery; admin creates user → setup email (mailhog) → login; Board sees dashboard only; Trainee practice chart; language toggle; idle timeout.
-- [ ] **P5-05 (M)** Performance tests (k6): login and chart list ≤2 s on a simulated 10 Mbps connection (NFR1); search ≤2 s at 50,000 charts (NFR2); 25 concurrent users with ≤10% degradation (NFR3).
-- [ ] **P5-06 (S)** Seed script that generates 50,000+ synthetic charts for the performance tests.
-- [ ] **P5-07 (M)** Accessibility audits: automated (axe/Lighthouse) plus manual keyboard and screen-reader pass for the five main flows.
-- [ ] **P5-08 (M)** Usability test: at least 3 new volunteers complete a basic chart within 10 minutes of training; record time, errors, and quotes. Reqs: NFR13.
-- [ ] **P5-09 (S)** Spanish translation review with 2 bilingual providers (FR8 acceptance); capture corrections.
-- [ ] **P5-10 (M)** Tablet testing on the actual devices the clinic uses (screen sizes, touch, orientation, browser versions). Reqs: FR9.
-- [ ] **P5-11 (S)** Test data policy: only synthetic data in dev/test; documented.
-- [ ] **P5-12 (S)** Regression tests for every legacy vulnerability from P0-30 (SQL injection strings, path traversal strings, unauthenticated access).
-- [ ] **P5-13 (S)** Traceability matrix: every FR/NFR → tests and verification method (spec's "Verification Method" column). Keep in `docs/traceability.md`; CI check that each requirement ID appears in at least one test name or file.
+### 4.1 Scaffolding
+- [ ] **P4-01 (M)** React 18 + Vite + TypeScript, ESLint a11y, Vitest + Testing Library, Playwright.
+- [ ] **P4-02 (S)** One UI library; remove Bootstrap and MUI v4 mix.
+- [ ] **P4-03 (M)** Design tokens: 4.5:1 contrast, 16 px base font, light and dark themes (night mode is the stakeholder's top accessibility ask). Reqs: NFR11, FR24.
+- [ ] **P4-04 (S)** Single API client: env base URL, CSRF header, 401 → login, types from shared package.
+- [ ] **P4-05 (S)** TanStack Query for caching, retries, loading/error states.
+- [ ] **P4-06 (M)** App shell: nav by role, language toggle, theme toggle, user menu, session warning at 14 min.
+- [ ] **P4-07 (M)** Role-aware route guards from the permission map; access-denied page.
+- [ ] **P4-08 (S)** `useAuth()` hook: session via `/auth/me`, 15-minute idle timer. Reqs: NFR7.
+
+### 4.2 i18n and accessibility (FR8, NFR11)
+- [ ] **P4-10 (M)** EN/ES namespaces plus option-label catalogs keyed by option code.
+- [ ] **P4-11 (S)** Language toggle saved to user profile; falls back to browser language before login.
+- [ ] **P4-12 (S)** CI check for missing keys in either language.
+- [ ] **P4-13 (M)** Locale-aware dates/numbers/units.
+- [ ] **P4-14 (M)** Accessibility pass: labels, focus order, keyboard use, ARIA live regions for save messages, ≥44 px touch targets, `axe` in CI.
+- [ ] **P4-15 (S)** Token-pair contrast test across themes.
+- [ ] **P4-16 (M)** Spanish review by fluent providers; sign-off checklist per screen.
+
+### 4.3 Auth screens
+- [ ] **P4-20 (M)** Login page with validation and language toggle.
+- [ ] **P4-21 (M)** Account setup page: live password checklist; expired-link state with "request new link".
+- [ ] **P4-22 (S)** Forgot-password and reset-confirm pages.
+
+### 4.4 Chart entry (View = `FormRenderer`, Controller = `ChartController`/`useChart`)
+- [ ] **P4-30 (M)** Call-type picker (Clinic / Ambulance) then nature of call; large touch cards.
+- [ ] **P4-31 (L)** `FormRenderer.render(formDefinition, values)`: text, number, select, multiselect, radio, checkbox, date, timestamp, body-region picker, repeating rows (medications, procedures, vitals, fluids); `showErrors(errors)`.
+- [ ] **P4-32 (M)** `ChartController`: `onFieldChange`, `autosave`, `submit`; client validation reusing the definition; focus first error.
+- [ ] **P4-33 (M)** Stepper with progress; **≤10 fields per screen**. Reqs: NFR12.
+- [ ] **P4-34 (M)** Timestamp sidebar visible on every step: dispatch, en route, arrive, patient contact, depart, arrive at destination, transfer; plus incident number, unit, meds given, patient name. Timestamps editable from the sidebar (Joel's request). Reqs: FR22.
+- [ ] **P4-35 (M)** Patient step: search existing or create; duplicate warning.
+- [ ] **P4-36 (L)** Interventions step (medications, procedures, vitals, fluids) with a spell-check hook ready for FR31.
+- [ ] **P4-37 (M)** Review screen: read-only summary, missing required fields linked, confirm dialog on submit.
+- [ ] **P4-38 (M)** Autosave: debounce, "Saved at hh:mm" / "Not saved", server draft + local fallback, restore prompt within TTL; "save now" button. Reqs: FR13.
+- [ ] **P4-39 (S)** Trainee mode: "Practice chart: not saved to patient records" banner and distinct accent. Reqs: FR23.
+- [ ] **P4-40 (M)** Attachment step: size/type feedback, thumbnails, remove before submit. Reqs: FR17.
+- [ ] **P4-41 (M)** Consent/AMA signature pad (touch and stylus), language switch for text. Reqs: FR16.
+- [ ] **P4-42 (S)** Help button/tooltips next to complex fields (moderate-low priority from interviews).
+
+### 4.5 Browsing and addenda
+- [ ] **P4-50 (M)** Chart list: search by name/date, filters, pagination, empty/error states.
+- [ ] **P4-51 (M)** Chart detail: read-only, grouped by section, form version, author, attachments, addenda; **no edit controls**.
+- [ ] **P4-52 (S)** Add-addendum panel (Provider/Admin).
+- [ ] **P4-53 (S)** PDF and CSV download buttons (current language).
+
+### 4.6 Dashboard
+- [ ] **P4-60 (M)** Filter bar (date range, visit type, incident type) bound to URL params; side-by-side date-range comparison.
+- [ ] **P4-61 (L)** Metric cards with trend arrows and plain-language text; charts with accessible text alternatives plus a table of raw numbers.
+- [ ] **P4-62 (S)** Export buttons for current filter.
+- [ ] **P4-63 (S)** Board role sees dashboard only, no chart links.
+- [ ] **P4-64 (S)** Metrics read from server config (P3-85).
+
+### 4.7 Admin and settings
+- [ ] **P4-70 (M)** User table: search, role dropdown, active toggle, send setup link, reset password, status badges.
+- [ ] **P4-71 (S)** Create-user dialog.
+- [ ] **P4-72 (M)** Audit log viewer.
+- [ ] **P4-73 (M)** Admin security settings page (lockout threshold, minimum password length; 2-step sign-in only if scoped). Confirm which settings are really in scope.
+- [ ] **P4-74 (S)** User settings: email, password, language, theme.
+- [ ] **P4-75 (M)** Form field manager (FR30, Level 3).
+
+### 4.8 Retire legacy frontend
+- [ ] **P4-80 (S)** Feature parity checklist against P0-24; each old screen has an equivalent or a "dropped" decision.
+- [ ] **P4-81 (S)** Remove canvasjs, jspdf, html2canvas, moment, bootstrap, MUI v4.
 
 ---
 
-## Phase 6: Deployment and operations (NFR5, NFR9, NFR10)
+## Phase 5: Security and compliance (FR11, FR21, NFR4–NFR7)
 
-- [ ] **P6-01 (M)** Dockerfiles for API and web; docker-compose for local development (db, mailhog, MinIO, api, web).
-- [ ] **P6-02 (M)** Environments: `dev`, `staging` (production-like, synthetic data), `production`. Different secrets and databases.
-- [ ] **P6-03 (M)** Hosting setup per ADR-006: VM or container platform, managed database or self-managed with backups, object storage, domain, TLS certificates with auto-renew.
-- [ ] **P6-04 (M)** CD pipeline: on merge to `main` deploy to staging; manual approval to production; runs migrations after the backup gate (P2-111).
-- [ ] **P6-05 (S)** Zero-downtime-ish deploy or a published maintenance window procedure (planned maintenance is excluded from uptime, NFR10).
-- [ ] **P6-06 (M)** Monitoring: uptime check on `/healthz`, error tracking (Sentry or similar, PHI scrubbing on), disk/DB alerts, backup success alert. Reqs: NFR10.
-- [ ] **P6-07 (S)** Uptime measurement method (monthly report from the monitor). Reqs: NFR10.
-- [ ] **P6-08 (S)** Runbook: restart, restore from backup, rotate secrets, add a user manually, read audit logs.
-- [ ] **P6-09 (S)** Disaster recovery test: restore production-like backup into a clean environment, time it, document RTO/RPO.
-- [ ] **P6-10 (S)** Log retention and rotation; access to logs limited.
-- [ ] **P6-11 (S)** Dependency and OS patching schedule; owner assigned.
-
----
-
-## Phase 7: Cutover from legacy
-
-- [ ] **P7-01 (S)** Cutover plan document: date/time, owner, communication, freeze window, rollback conditions.
-- [ ] **P7-02 (S)** Announce freeze to clinic staff; agree on paper fallback during the window.
-- [ ] **P7-03 (S)** Final legacy backup + verification (P0-50, P0-51).
-- [ ] **P7-04 (M)** Run ETL on final data; run `verify`; get sign-off from two team members and the sponsor contact.
-- [ ] **P7-05 (S)** Provision users: send setup links to all existing users (no password carry-over) or a staged invite.
-- [ ] **P7-06 (S)** Smoke tests in production: login, search a known migrated chart, view addendum, export PDF, create a practice chart.
-- [ ] **P7-07 (S)** Switch DNS/URL; set the legacy app to read-only or take it offline; keep the DB snapshot.
-- [ ] **P7-08 (S)** Monitor closely for 2 weeks; daily check of errors, slow queries and support questions.
-- [ ] **P7-09 (S)** Rollback plan tested in rehearsal (what happens to charts entered after cutover if we have to go back?).
-- [ ] **P7-10 (S)** Retention: when to archive and finally dispose of the legacy snapshot (agree with the sponsor).
-- [ ] **P7-11 (M)** Training: short guides in EN/ES (PDF and in-app help) for Providers, Trainees, Admins, Board; one live session per group. Reqs: NFR13.
+- [ ] **P5-01 (M)** STRIDE threat model → `docs/threat-model.md`.
+- [ ] **P5-02 (S)** Map HIPAA technical safeguards to controls.
+- [ ] **P5-03 (M)** Review NOM-024-SSA3-2012 with Bryan and a compliance adviser; ticket gaps; don't claim compliance without sign-off.
+- [ ] **P5-04 (S)** Data classification (PHI/identifier/other) driving log redaction and export rules.
+- [ ] **P5-05 (S)** Retention policy with Rescate. Charts are immutable; interview says minimum 10 years, goal indefinite, while UC04 says 5 years minimum in Mexico. Settle one number.
+- [ ] **P5-06 (M)** OWASP ZAP baseline against staging; fix findings.
+- [ ] **P5-07 (S)** `npm audit` in CI; fail on high/critical.
+- [ ] **P5-08 (S)** Secrets management and rotation procedure.
+- [ ] **P5-09 (S)** Verify cookie flags and headers (CSP, HSTS, X-Content-Type-Options, Referrer-Policy).
+- [ ] **P5-10 (M)** Access-log review procedure; test with a mock incident.
+- [ ] **P5-11 (S)** One-page incident response (breach, lost tablet, compromised account).
+- [ ] **P5-12 (S)** Backup security: encryption, access list, quarterly restore drill.
+- [ ] **P5-13 (S)** Teammate-run pen-test checklist: privilege escalation across all role pairs, IDOR on chart/attachment UUIDs, token reuse, session fixation.
+- [ ] **P5-14 (S)** Confirm no PHI in logs, URLs, errors, or analytics.
 
 ---
 
-## Phase 8: Level 2 features 
+## Phase 6: Testing and quality (NFR1–NFR3, NFR13, NFR14)
+
+- [ ] **P6-01 (M)** Unit tests for services (lifecycle, validation, policy, tokens, password policy) to ≥70% backend coverage with CI gate.
+- [ ] **P6-02 (M)** Integration tests per endpoint with a real DB (immutability, 10-minute links, search limits, concurrency).
+- [ ] **P6-03 (M)** Contract tests: OpenAPI vs generated frontend client.
+- [ ] **P6-04 (L)** Playwright flows: login → clinic chart → submit → addendum; ambulance chart with autosave recovery; admin creates user → setup email → login; Board sees dashboard only; Trainee practice chart; language toggle; idle timeout.
+- [ ] **P6-05 (M)** k6 performance: pages ≤2 s at 10 Mbps (NFR1), search ≤2 s at 50k (NFR2), 25 concurrent users ≤10% degradation (NFR3).
+- [ ] **P6-06 (S)** Generator for 50,000+ synthetic charts.
+- [ ] **P6-07 (M)** Accessibility audits: axe/Lighthouse plus manual keyboard and screen-reader pass.
+- [ ] **P6-08 (M)** Usability test: ≥3 new volunteers complete a basic chart within 10 minutes of training. Book volunteers early. Reqs: NFR13.
+- [ ] **P6-09 (S)** Spanish review with 2 bilingual providers.
+- [ ] **P6-10 (M)** Test on the clinic's actual tablets. Reqs: FR9.
+- [ ] **P6-11 (S)** Synthetic-data-only policy in dev/test.
+- [ ] **P6-12 (S)** Regression tests for every P0-30 legacy vulnerability.
+- [ ] **P6-13 (S)** `docs/traceability.md`: each FR/NFR → tests and verification method; CI check that each ID appears in a test.
+
+---
+
+## Phase 7: Deployment, operations and cutover
+
+### 7.1 Deployment (NFR5, NFR9, NFR10)
+- [ ] **P7-01 (M)** Dockerfiles; docker-compose for dev (db, mailhog, MinIO, api, web).
+- [ ] **P7-02 (M)** `dev`, `staging` (synthetic data), `production` with separate secrets and DBs.
+- [ ] **P7-03 (M)** Hosting per ADR-006: DB, object storage, domain, auto-renewing TLS.
+- [ ] **P7-04 (M)** CD: merge to `main` → staging; manual approval → production; migrations after the backup gate.
+- [ ] **P7-05 (S)** Maintenance-window procedure (planned maintenance excluded from uptime).
+- [ ] **P7-06 (M)** Monitoring: `/healthz` uptime, error tracking with PHI scrubbing, disk/DB alerts, backup alert. Reqs: NFR10 (98% monthly).
+- [ ] **P7-07 (S)** Runbook: restart, restore, rotate secrets, add a user manually, read audit logs.
+- [ ] **P7-08 (S)** Disaster-recovery drill; document RTO/RPO.
+- [ ] **P7-09 (S)** Log retention/rotation; patching schedule with an owner.
+
+### 7.2 Cutover
+- [ ] **P7-20 (S)** Cutover plan: date, owner, freeze window, rollback conditions, paper fallback.
+- [ ] **P7-21 (S)** Final legacy backup + verification.
+- [ ] **P7-22 (M)** Run ETL on final data; verify; sign-off from two teammates and Bryan.
+- [ ] **P7-23 (S)** Send setup links to all existing users.
+- [ ] **P7-24 (S)** Production smoke tests: login, find a migrated chart, view addendum, export PDF, practice chart.
+- [ ] **P7-25 (S)** Switch URL; legacy read-only or offline; keep DB snapshot.
+- [ ] **P7-26 (S)** Two weeks of close monitoring.
+- [ ] **P7-27 (S)** Rehearse rollback, including what happens to charts entered after cutover.
+- [ ] **P7-28 (S)** Agree legacy snapshot retention/disposal with Rescate.
+- [ ] **P7-29 (M)** EN/ES training guides and one live session per role. Reqs: NFR13.
+
+---
+
+## Phase 8: Level 2 features (FR14–FR24)
+
+Most FR22–FR24 work is already placed in Phases 3–4; this phase holds offline and polish.
 
 ### 8.1 Offline and sync (FR14, FR15, NFR4, NFR8)
-- [ ] **P8-01 (M)** Decide offline scope with the sponsor: which screens work offline (chart entry only, or also search?).
-- [ ] **P8-02 (M)** PWA basics: web manifest, service worker (app shell cache), install prompt, update flow that does not interrupt a chart in progress.
-- [ ] **P8-03 (L)** Local encrypted store: IndexedDB via Dexie; AES-GCM with a key derived at login (WebCrypto) and wiped on logout/idle; request persistent storage; handle quota errors.
-- [ ] **P8-04 (L)** Chart service abstraction on the client (`ChartRepository` interface with online and offline implementations) so UI code does not change.
-- [ ] **P8-05 (L)** Outbox: queue of operations (`draft.save`, `chart.submit`, `addendum.add`, `attachment.put`) with client-generated UUIDs and idempotency keys; persisted before UI says "saved".
-- [ ] **P8-06 (L)** Server `/sync/push`: idempotent apply, per-item result, partial failures, no duplicates on retry; conflict detection for drafts edited on two devices (flag, do not merge). Reqs: FR15.
-- [ ] **P8-07 (M)** Retry with backoff; visible banner for pending/failed items; user notification on failure. Reqs: NFR8.
-- [ ] **P8-08 (M)** Purge local data after server acknowledgement; confirm by test. Reqs: NFR4.
-- [ ] **P8-09 (M)** Offline login: allow a previously authenticated user to unlock the local store (PIN/password) while offline; define the limits.
-- [ ] **P8-10 (L)** Failure-injection tests: kill the tab mid-write, airplane mode mid-submit, clock skew, duplicated requests, server 500 mid-batch; assert zero data loss.
-- [ ] **P8-11 (S)** Flag incomplete records at sync time ("missing required fields") instead of rejecting silently. Reqs: FR15.
+- [ ] **P8-01 (M)** Agree offline scope with Rescate (chart entry only, or also search?).
+- [ ] **P8-02 (M)** PWA basics: manifest, service worker, install prompt, update flow that never interrupts an in-progress chart.
+- [ ] **P8-03 (L)** Encrypted local store (IndexedDB/Dexie, AES-GCM, key from login, wiped on logout/idle).
+- [ ] **P8-04 (L)** Client `ChartRepository`-style abstraction with online and offline implementations so UI code doesn't change.
+- [ ] **P8-05 (L)** Outbox of operations with client UUIDs and idempotency keys; persisted before UI says "saved".
+- [ ] **P8-06 (L)** Server `/sync/push`: idempotent, per-item results, no duplicates on retry, conflicts flagged not merged; sets `needs_review`. Reqs: FR15.
+- [ ] **P8-07 (M)** Retry with backoff; banner for pending/failed items. Reqs: NFR8.
+- [ ] **P8-08 (M)** Purge local data after server ack; test it. Reqs: NFR4.
+- [ ] **P8-09 (M)** Offline unlock of the local store for a previously signed-in user.
+- [ ] **P8-10 (L)** Failure-injection tests: tab killed mid-write, airplane mode mid-submit, clock skew, duplicate requests, 500 mid-batch; assert zero loss.
+- [ ] **P8-11 (S)** Flag incomplete records at sync time instead of rejecting silently.
 
 ### 8.2 Other Level 2
-- [ ] **P8-20 (M)** Image capture and compression on tablets (camera access, EXIF stripping, orientation fixes). Reqs: FR17.
-- [ ] **P8-21 (M)** Signature screens polished for tablets in EN/ES; consent text versioning. Reqs: FR16.
-- [ ] **P8-22 (M)** Dashboard metric refinement workshop with sponsor and Board; update metric config (P2-107). Reqs: FR19.
-- [ ] **P8-23 (M)** Trainee practice scenarios (pre-filled sample cases providers can open and practice). Reqs: FR23.
-- [ ] **P8-24 (S)** Dark-mode QA across every screen and chart color. Reqs: FR24.
+- [ ] **P8-20 (M)** Tablet image capture and compression (camera, EXIF stripping, orientation). Reqs: FR17.
+- [ ] **P8-21 (M)** Signature screens polished for tablets; consent text versioning. Reqs: FR16.
+- [ ] **P8-22 (M)** Dashboard metric workshop with Rescate and Board. Reqs: FR19.
+- [ ] **P8-23 (M)** Pre-filled practice scenarios for trainees. Reqs: FR23.
+- [ ] **P8-24 (S)** Dark-mode QA across every screen and chart. Reqs: FR24.
 
 ---
 
 ## Phase 9: Level 3 features (if time allows)
 
-- [ ] **P9-01 (L)** Medication spell-check: bilingual medication dictionary, fuzzy match with suggestions, offline-capable. Reqs: FR31.
-- [ ] **P9-02 (M)** Trend alerts: scheduled job comparing rolling windows, threshold config, email/in-app notification (e.g. bike trauma spike). Reqs: FR27.
-- [ ] **P9-03 (M)** Accessibility modes: high/low contrast themes, dyslexia-friendly font option stored per user. Reqs: FR26.
-- [ ] **P9-04 (M)** Additional languages: translation workflow, pseudo-localization test, right-to-left check if needed. Reqs: FR29.
-- [ ] **P9-05 (L)** Admin-configurable fields UI (timestamp/text), versioned and previewed before publishing. Reqs: FR30.
-- [ ] **P9-06 (L)** Open-source packaging: strip Rescate-specific content into configuration (clinic name, catalogs, forms), license choice, contribution guide, installation docs, sample data. Reqs: FR28.
-- [ ] **P9-07 (L)** Capacitor wrap for iOS/Android; evaluate App Store/Play review risk, storage behavior, background sync limits. Reqs: FR25.
+- [ ] **P9-01 (L)** Medication spell-check (bilingual dictionary, fuzzy match, offline-capable). Reqs: FR31.
+- [ ] **P9-02 (M)** Trend alerts (rolling-window job, thresholds, notification). Reqs: FR27.
+- [ ] **P9-03 (M)** High/low contrast themes and dyslexia-friendly font per user. Reqs: FR26.
+- [ ] **P9-04 (M)** Additional languages workflow. Reqs: FR29.
+- [ ] **P9-05 (L)** Admin-configurable fields UI with versioning and preview. Reqs: FR30.
+- [ ] **P9-06 (L)** Open-source packaging: Rescate-specific content to config, license, docs. Reqs: FR28.
+- [ ] **P9-07 (L)** Capacitor wrap for iOS/Android; evaluate store-review and background-sync risk. Reqs: FR25.
 
 ---
 
-## Phase 10: Documentation and course deliverables
+## Phase 10: Remaining documentation
 
-- [ ] **P10-01 (M)** Design report fur October 28
-- [ ] **P10-03 (L)** 10 UI mock-ups (Figma or similar) for the screens listed in section 7.2 of the outline, with annotations.
-- [ ] **P10-04 (S)** README rewrite: how to run, test, migrate, deploy.
-- [ ] **P10-05 (S)** API documentation published from OpenAPI.
-- [ ] **P10-06 (S)** Architecture decision records complete (P0-60 … P0-67) and linked from the README.
-- [ ] **P10-07 (S)** User guides (EN/ES) and a short admin guide.
-- [ ] **P10-08 (S)** Maintenance guide for the clinic's future volunteers: how to add a user, change a field, restore a backup.
+- [ ] **P10-01 (S)** API docs published from OpenAPI.
+- [ ] **P10-02 (S)** ADRs complete (P0-50…P0-59) and linked from the README.
+- [ ] **P10-03 (S)** User guides (EN/ES) and a short admin guide.
+- [ ] **P10-04 (S)** Maintenance guide for future volunteers: add a user, change a field, restore a backup.
 
 ---
+
+## Open questions (resolve with Bryan or the instructors)
+
+1. **Trainee data.** FR23/UC18 say practice submissions are discarded and never reach the DB; §4.2 puts `isPractice` on `Chart`, which implies storing them. Decide before P3-62 (ADR-010).
+2. **Retention.** 10 years minimum (interview) vs 5 years minimum (UC04). See P5-05.
+3. **Admin security settings.** UC13 lists two-step sign-in and lockout after 5 failures; FR/NFR list neither two-step nor configurable lockout. Confirm scope.
+4. **DB engine.** MySQL vs PostgreSQL (ADR-002) before P2-03.
+5. **Attachment limits.** Interviewees only need EKG and medication-list images; storage size was flagged as a semi-technical answer to be treated with caution.
+6. **Requirements not mapped to a class in §4.2:** FR9, FR14, FR21, FR22 (sidebar view), FR23–FR29, NFR1, NFR3, NFR4, NFR5, NFR8, NFR10–NFR15. Tasks above cover them; keep the traceability matrix in sync.
 
 ## Suggested order
 
-| Week | Focus | Exit check |
+| Period | Focus | Exit check |
 |---|---|---|
-| 1 | P0-01…P0-12 (repo, CI, process), P0-20…P0-30 (audit), P0-50…P0-53 (backups), ADRs | Legacy runs locally, backups restore, data profile written, decisions recorded |
-| 2 | P1-01…P1-10 (schema), P1-20…P1-23 (option codes, forms), P2-01…P2-10 (scaffolding) | New DB migrates from scratch, form definitions validate, API boots with tests in CI |
-| 3 | P2-20…P2-44 (auth + RBAC), P3-01…P3-08 (web scaffold), P3-20…P3-23 | Login, setup link, reset link, role matrix tests green |
-| 4 | P2-60…P2-80 (forms, drafts, charts, addenda), P1-30…P1-39 (ETL v1) | A chart can be drafted, submitted, found by search and amended by an addendum; ETL dry run reports on sample data |
+| Now–Oct 28 | Phase 1 (design report), P0-02…P0-12 | Report submitted; schema and class names agree |
+| Next 2 weeks | P0-20…P0-31 (audit), P0-40…P0-43 (backups), ADRs | Legacy runs, backups restore, data profile written, decisions recorded |
+| Then | Phase 2.1–2.2 (schema, forms), P3-01…P3-10, P3-20…P3-26 | New DB migrates from scratch; API boots with CI green; repositories tested |
+| Then | P3-30…P3-45 (security, auth), P4-01…P4-08, P4-20…P4-22 | Login, setup link, reset link, role matrix tests green |
+| Then | P3-50…P3-69 (forms, drafts, charts, addenda), P4-30…P4-41, ETL v1 (P2-30…P2-39) | Chart can be drafted, submitted, searched, amended; ETL dry run on sample data |
+| Spring 2027 | Dashboard, offline (Phase 8), testing, cutover (Phase 7) | Usability test passed; cutover rehearsed twice; done by May 2027 |
 
 ## Highest-risk items to start early
 
-1. **P0-22 data profiling and P1-33 chart transform** (unknown data quality, Spanish string values, text columns).
-2. **P0-61 database choice and P0-65 hosting/compliance** (blocks infrastructure and encryption choices).
-3. **P2-75 search at 50,000 rows** (index design affects the schema).
-4. **P8-03 to P8-10 offline store and sync** (hardest engineering; design seams in Phase 2 so it does not force a rewrite).
-5. **P5-08 usability test** (needs volunteers booked weeks ahead).
+1. **P0-22 data profiling and P2-34 chart transform** (unknown data quality, Spanish strings, text columns).
+2. **ADR-002 database and ADR-006 hosting/compliance** (block infrastructure and encryption).
+3. **P3-22 `ChartRepository` single-transaction insert across ~15 section tables** and **P3-64 search at 50,000 rows** (index design affects the schema).
+4. **P8-03…P8-10 offline store and sync** (hardest engineering; keep the client/server seam clean now).
+
+
+
+---
+
+## Prototype: "DB ↔ backend ↔ frontend, see charts"
+
+Goal: prove the stack is wired end to end. A user opens the web app, the app calls the API, the API reads the database, and a list of charts appears. Throwaway quality is fine. No auth, drafts, offline, forms, or dashboard. Use synthetic data only (P0-21 / P6-11).
+
+**Scope: in**
+- One database with 2 required tables (`patients`, `charts`) and optionally `ambulance_calls`/`clinic_visits`, with a few seeded rows.
+- One API: `GET /healthz`, `GET /charts`, `GET /charts/:uuid`, going Route → Service → Repository (so the layering is real from day one).
+- One web page: chart list, click a row to see detail.
+
+### Steps
+- [ ] **PR-01 (S)** Pick the stack for the prototype per ADR-002/003/004  *Done when:* the team agrees and the choice is written down.
+- [ ] **PR-02 (S)** Create the repo layout from P0-02. Do not touch the legacy `backend/` and `frontend/`. *Done when:* both apps install and start with an empty hello page / `/healthz`.
+- [ ] **PR-03 (S)** Start a local database (docker-compose or local MySQL) and add a `.env.example` with the connection settings. No real secrets in git. *Done when:* the DB runs and you can connect with a client.
+- [ ] **PR-04 (M)** First migration creating `patients` and `charts` (shared columns from §4.3: `id`, `chart_uuid`, `patient_id`, `created_by`, `visit_type`, `incident_date`, `disposition`, `submitted_at`), with PK/FK/unique keys. Optionally add `ambulance_calls` and `clinic_visits` 1:1 on `chart_id`. *Done when:* the migration runs on an empty DB.
+- [ ] **PR-05 (S)** Seed script inserting about 10 fake patients and 15 fake charts (mix of clinic and ambulance). *Done when:* `SELECT COUNT(*) FROM charts` returns the seeded count.
+- [ ] **PR-06 (S)** One-command reset (`npm run db:reset`): create, migrate, seed. *Done when:* a teammate runs it from a clean clone.
+- [ ] **PR-07 (S)** API skeleton: env config, DB pool, `GET /healthz` that runs `SELECT 1`. *Done when:* `curl localhost:<port>/healthz` returns OK only when the DB is reachable (stop the DB and confirm it fails).
+- [ ] **PR-08 (M)** Repository layer: `ChartRepository.search(filters, page)` and `findByUuid(uuid)` (read-only, no update/delete methods), joining the patient name. *Done when:* a repository test against the seeded DB returns expected rows.
+- [ ] **PR-09 (S)** Service layer: `ChartService.search` and `get` that call the repository; routes call the service only. *Done when:* the routes contain no SQL.
+- [ ] **PR-10 (S)** Routes `GET /charts` (with `page`, optional `name` filter) and `GET /charts/:uuid`, returning JSON; 404 for an unknown uuid. *Done when:* `curl` shows the seeded charts.
+- [ ] **PR-11 (S)** CORS for the web dev origin only. *Done when:* the browser can call the API without CORS errors.
+- [ ] **PR-12 (S)** Web: API client wrapper with base URL from env. *Done when:* the app fetches `/healthz` and shows "API connected".
+- [ ] **PR-13 (M)** Web: chart list page (date, patient name, visit type, disposition) with loading, empty and error states. *Done when:* the page shows all seeded charts.
+- [ ] **PR-14 (S)** Web: read-only chart detail page opened from a list row via `/charts/:uuid`. *Done when:* clicking a row shows that chart's fields.
+- [ ] **PR-15 (S)** Smoke tests: an API integration test on `GET /charts` against the seeded test DB, plus one Playwright check that the list shows the expected row count. *Done when:* both pass locally.
+- [ ] **PR-16 (S)** Run instructions (clone, `.env`, `db:reset`, start api, start web) in `docs/prototype.md`. *Done when:* a teammate who didn't build it reaches the chart list in under 10 minutes.
+- [ ] **PR-17 (S)** Demo checklist: (1) rows in the DB client, (2) `curl /charts`, (3) web list, (4) chart detail, (5) stop the DB and show the error state. *Done when:* rehearsed once.
+
+### Stretch (still below MVP)
+- [ ] **PR-20 (M)** Load a sanitized sample of legacy charts via a throwaway script (P0-21, P0-22) to show real-shaped data.
+- [ ] **PR-21 (S)** Name filter box on the list calling `GET /charts?name=`.
+- [ ] **PR-22 (S)** Hard-coded role switch (no real login) that hides the list for "Board", to preview FR2.

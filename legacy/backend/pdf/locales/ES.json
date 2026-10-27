@@ -1,0 +1,109 @@
+{
+    "patientName": "Nombre",
+    "ePCR": "Patient Care Record",
+    "demographics": "Demografía",
+
+    "fName": "Nombre de pila",
+    "lName": "Apellido",
+    "classificationText": "Clasificación de pacientes",
+    "classifications": {
+        "Adult": "Adult - 15 yr to 65 yr",
+        "Senior Adult": "Senior Adult - >65 yr",
+        "Pediatric": "Pediatric - 28 days to 15 yr",
+        "Neonatal": "Neonatal - 0 to 28 days"
+    },
+    "DOB": "Dia de Nacimiento",
+    "sex": "Sexo",
+    "address": "Direccion",
+    "phone": "Teléfono",
+    "weight": "Peso del paciente",
+    "braslow": "Color Braslow",
+
+    "callInformation": "Información de llamadas",
+    "incidentNumber": "Incidente #",
+    "unitNumber": "Número de unidad",
+    "callType": "Tipo de llamada",
+    "callNature": "La Razón de la llamada",
+    "disposition": "Disposition",
+    "destination":"Destino",
+    "incidentDate": "Incident Date",
+    "incidentAddress": "Dirección del incidente",
+    "agency": "Agencias",
+    "trauma": "Causa de trauma",
+
+    "numberOfPatients": "Número de pacientes",
+    "triageColor": "Color de clasificación",
+
+    "vehicleAccident": "Accidente Vehiculoso",
+    "vehicleAccidentType": "Tipo",
+    "vehicleAccidentImpact":"Impacto",
+    "vehicleAccidentSafetyEquipment": "Equipos de seguridad",
+    "vehicleAccidentSpeed": "Velocidad estimada",
+    "vehicleAccidentEjection": "Expulsión del vehículo",
+    "location": "Ubicación",
+
+    "responseTimes":"Tiempos de respuesta",
+    "dispatch": "Envío",
+    "enroute": "Ruta",
+    "arriveScene": "Llegar escena",
+    "patientContact": "Contacto con el paciente",
+    "departScene": "Escena de salida",
+    "arriveDestination": "Destino de llegada",
+    "transferCare": "Transferencia del paciente",
+
+    "medicalHistory": "Historial médico",
+    "medicationAllergies": "Alergias a medicamentos",
+    "environmentalAllergies": "Alergias ambientales",
+    "pastMedicalHistory": "Historia médica",
+    "medications": "Medicamentos",
+
+    "physicalExam": "Examen físico",
+    "skin": "Piel",
+    "mental": "Mental",
+    "neurological": "Neurológicos",
+    "head": "Cabeza",
+    "neck": "Cuello",
+    "chest": "Pecho",
+    "pulse": "Pulso",
+    "strength": "Fuerza",
+    "rate": "Grado",
+    "abdomen": "Abdomen",
+    "pelvis": "Pelvis",
+    "back": "Atrás",
+    "leftUpperArm": "Brazo superior izquierdo",
+    "leftLowerArm": "Brazo inferior izquierdo",
+    "leftHandWrist": "Mano izquierda / Muñeca",
+    "rightUpperArm": "Parte superior derecha del brazo",
+    "rightLowerArm": "Brazo inferior derecho",
+    "rightHandWrist": "Mano derecha / Muñeca",
+    "leftUpperLeg": "Parte superior izquierda de la pierna",
+    "leftLowerLeg": "Pierna inferior izquierda",
+    "leftAnkleFoot": "Tobillo izquierdo / Pie",
+    "rightUpperLeg": "Parte superior derecha de la pierna",
+    "rightLowerLeg": "Parte inferior derecha de la pierna",
+    "rightAnkleFoot": "Tobillo derecho / Pie",
+    "additionalFindings": "Hallazgos adicionales",
+
+    "stroke": "Golpe",
+    "strokeTime": "Tiempo de inicio",
+    "strokeFacialDroop": "Caída facial",
+    "strokeArmDrift": "Deriva del brazo",
+    "strokeAbnormalSpeech": "Discurso anormal",
+
+    "vitalSigns": "Signos vitales",
+    "procedures": "Procedures",
+    "intakeOutput": "Ingesta / Salida",
+    "bleeding": "Sangrado",
+    "ivFluids": "IV fluidos",
+    "oralFluids": "Líquidos orales",
+    "vomit": "Vómito",
+
+    "obstetrics": "Obstetricia",
+    "notes": "Notas"
+
+
+
+
+
+    
+}
