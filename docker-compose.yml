@@ -1,10 +1,19 @@
 services:
   db:
     image: mysql:8.4
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: rootpw
-      MYSQL_DATABASE: rescate_dev
-    ports: ["3306:3306"]
+      MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
+      MYSQL_DATABASE: ${DB_NAME}
+    ports:
+      - "127.0.0.1:${DB_PORT}:3306"
     volumes:
-      # mount any seed files to run on startup 
-      - ./apps/api/seeds:/docker-entrypoint-initdb.d
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${DB_PASSWORD}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  db_data:
