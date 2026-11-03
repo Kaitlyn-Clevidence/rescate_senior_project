@@ -1,0 +1,10 @@
+services:
+  db:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpw
+      MYSQL_DATABASE: rescate_dev
+    ports: ["3306:3306"]
+    volumes:
+      # mount any seed files to run on startup 
+      - ./apps/api/seeds:/docker-entrypoint-initdb.d
