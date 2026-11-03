@@ -1,0 +1,25 @@
+# .github/workflows/main.yml
+name: Rescate Senior Proj
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the repository code onto the runner
+      - name: Checkout repository code
+        uses: actions/checkout@v4
+
+      # Step 2: Print a status message to the console logs
+      - name: Log message
+        run: echo "Code checked out successfully. Running environment tests..."
+
+      # Step 3: Check system software versions
+      - name: Verify Node and NPM versions
+        run: |
+          node -v
+          npm -v
