@@ -2,8 +2,7 @@
 
 ## Database setup
 
-Requires Docker Desktop (running).
-
+Requires Docker Desktop (running)
 1. Copy the env file and set a dev password:
 
    ```bash
@@ -62,3 +61,5 @@ Requires Docker Desktop (running).
   ```
 
 - If `.env` changes after the first start, the password inside the database won't update. Wipe with `down -v` first.
+
+run `npm install` in apps/api and (eventually) apps/web to install necessary dependencies

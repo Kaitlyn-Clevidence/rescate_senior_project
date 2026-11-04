@@ -1,3 +1,9 @@
+-- Author(s): Kaitlyn Clevidence
+-- Start date: 2024-06-05
+-- Last updated: 2024-06-05
+-- P4: Prototype 
+-- Purpose: seeds sample data into the api database for the prototype demo;
+
 -- Clear existing rows so the seed is safe to re-run. Foreign key checks are
 -- off because MySQL refuses to TRUNCATE a table that another table references.
 -- TRUNCATE also resets AUTO_INCREMENT, so the patient_ids below stay 1-4.

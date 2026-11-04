@@ -1,3 +1,11 @@
+-- Author(s): Kaitlyn Clevidence
+-- Start date: 2024-06-05
+-- Last updated: 2024-06-05
+-- P4: Prototype 
+-- Purpose: initial migration for the api database; 
+-- creates tables and constraints for patients and charts
+-- to add other tables, create a new migration file & add the new tables there
+
 -- check on uuid and email uniqueness
 CREATE TABLE IF NOT EXISTS patients (
     patient_id INT UNSIGNED AUTO_INCREMENT,
