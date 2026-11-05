@@ -144,7 +144,7 @@ CREATE TABLE IF NOT EXISTS transports (
     transfer_of_care_at DATETIME,
     PRIMARY KEY (chart_id),
     FOREIGN KEY (chart_id) REFERENCES charts(chart_id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET utf8mb4;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE IF NOT EXISTS vehicle_accident (
     chart_id INT UNSIGNED NOT NULL,
@@ -169,4 +169,76 @@ CREATE TABLE IF NOT EXISTS chart_forms (
     PRIMARY KEY(chart_form_id),
     FOREIGN KEY (chart_id) REFERENCES charts(chart_id) ON DELETE CASCADE,
     FOREIGN KEY (signature_attachment_id) REFERENCES attachments(attachment_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS chart_crew (
+    crew_member_id INT UNSIGNED AUTO_INCREMENT,
+    chart_id INT UNSIGNED NOT NULL,
+    user_id INT UNSIGNED,
+    name VARCHAR(100),
+    role_on_call VARCHAR(50),
+    PRIMARY KEY (crew_member_id),
+    FOREIGN KEY (chart_id) REFERENCES ambulance_calls(chart_id) ON DELETE CASCADE,
+    FOREIGN KEY (user_id) REFERENCES users(user_id)    
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS wound_care (
+    chart_id INT UNSIGNED,
+    injury_occurred_at DATETIME,
+    wound_location VARCHAR(50),
+    wound_type VARCHAR(50),
+    wound_size VARCHAR(50),
+    wound_treatment VARCHAR(255),
+    wound_appearance VARCHAR(50),
+    suture_location VARCHAR(50),
+    suture_date_placed DATETIME,
+    sutures_removed INT UNSIGNED,
+    PRIMARY KEY (chart_id),
+    FOREIGN KEY (chart_id) REFERENCES charts(chart_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS medications_given (
+    medication_given_id INT UNSIGNED AUTO_INCREMENT,
+    chart_id INT UNSIGNED NOT NULL,
+    medication_name VARCHAR(100) NOT NULL,
+    dose DECIMAL(8,2),
+    unit VARCHAR(25),
+    route VARCHAR(50),
+    given_at DATETIME NOT NULL,
+    given_by INT unsigned,
+    ordered_by VARCHAR(50),
+    results TEXT,
+    PRIMARY KEY (medication_given_id),
+    FOREIGN KEY (chart_id) REFERENCES charts(chart_id) ON DELETE CASCADE,
+    FOREIGN KEY (given_by) REFERENCES users(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS procedures_performed (
+    procedure_performed_id INT UNSIGNED AUTO_INCREMENT,
+    chart_id INT UNSIGNED NOT NULL,
+    procedure_code VARCHAR(50) NOT NULL,
+    performed_at DATETIME NOT NULL,
+    performed_by INT UNSIGNED NOT NULL,
+    details JSON, -- Each procedure has their own field, (e.g. store things like amount of oxygen or delivery for oxygen)
+    notes TEXT,
+    PRIMARY KEY (procedure_performed_id),
+    FOREIGN KEY (chart_id) REFERENCES charts(chart_id) ON DELETE CASCADE,
+    FOREIGN KEY (performed_by) REFERENCES users(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS fluid_intake_output (
+    fluid_entry_id INT UNSIGNED AUTO_INCREMENT,
+    chart_id INT UNSIGNED NOT NULL,
+    kind ENUM('bleeding','iv fluids','oral fluids','vomit') NOT NULL,
+    phase ENUM('pre transport','transport') NOT NULL,
+    amount INT UNSIGNED NOT NULL,
+    PRIMARY KEY (fluid_entry_id),
+    UNIQUE(chart_id, kind, phase),
+    FOREIGN KEY (chart_id) REFERENCES charts(chart_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+
+
+
+
+
