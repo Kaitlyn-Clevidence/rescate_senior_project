@@ -8,6 +8,29 @@
   margin-bottom: 2rem;
 }
 
+.language-toggle {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.25rem;
+  margin-bottom: 4rem;
+}
+
+.language-button {
+  border: 1px solid #d5e0e6;
+  border-radius: 999px;
+  padding: 0.4rem 0.75rem;
+  color: #536777;
+  background: transparent;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.language-button:hover:not(:disabled),
+.language-button.active {
+  color: #125b7e;
+  background: #e8f5fa;
+}
+
 .eyebrow {
   margin: 0 0 0.75rem;
   color: #1976a3;
