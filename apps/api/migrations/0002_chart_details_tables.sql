@@ -3,9 +3,10 @@
 -- Last updated: 2026-11-04
 -- P4: Prototype 
 -- Purpose: Adds the remaining tables to the database
--- schema in a new migration, so that the databse covers the
+-- schema in a new migration, so that the database covers the
 -- full chart and aligns with repository classes (issue #5)
 
+-- User: a person who uses the system with a role
 CREATE TABLE IF NOT EXISTS users (
     user_id INT UNSIGNED AUTO_INCREMENT,
     username VARCHAR(50) NOT NULL UNIQUE,
@@ -20,10 +21,10 @@ CREATE TABLE IF NOT EXISTS users (
     PRIMARY KEY (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Ambulance chart: Ambulance only call details and timeline of dispatch
 CREATE TABLE IF NOT EXISTS ambulance_calls (
     chart_id INT UNSIGNED NOT NULL,
     call_category ENUM('scene','transfer') NOT NULL,
-    unit_number VARCHAR(50),
     mass_casualty_incident BOOLEAN NOT NULL DEFAULT FALSE,
     patient_count INT UNSIGNED,
     agencies VARCHAR(255),
@@ -31,18 +32,16 @@ CREATE TABLE IF NOT EXISTS ambulance_calls (
     unit_number VARCHAR(50),
     triage_color VARCHAR(50),
     care_level VARCHAR(50),
-    destination VARCHAR(100),
     dispatch_at DATETIME,
     enroute_at DATETIME,
     arrive_scene_at DATETIME,
     patient_contact_at DATETIME,
     depart_scene_at DATETIME,
-    arrive_at_destination DATETIME,
-    transfer_at DATETIME,
     PRIMARY KEY (chart_id),
     FOREIGN KEY (chart_id) REFERENCES charts(chart_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Clinic chart: Clinic only intake, discharge and visit details
 CREATE TABLE IF NOT EXISTS clinic_visits (
     chart_id INT UNSIGNED NOT NULL,
     intake_time DATETIME,
@@ -53,6 +52,7 @@ CREATE TABLE IF NOT EXISTS clinic_visits (
     FOREIGN KEY (chart_id) REFERENCES charts(chart_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- One set of vital set at a time (but multiple per chart)
 CREATE TABLE IF NOT EXISTS vitals (
     vital_id INT UNSIGNED AUTO_INCREMENT,
     chart_id INT UNSIGNED NOT NULL,
@@ -72,6 +72,7 @@ CREATE TABLE IF NOT EXISTS vitals (
     FOREIGN KEY (chart_id) REFERENCES charts(chart_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Note: Addendums added after a chart is submitted
 CREATE TABLE IF NOT EXISTS notes (
     note_id INT UNSIGNED AUTO_INCREMENT,
     chart_id INT UNSIGNED NOT NULL,
@@ -83,6 +84,7 @@ CREATE TABLE IF NOT EXISTS notes (
     FOREIGN KEY (user_id) REFERENCES users(user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Attachments: Metadata for a photo or signature file, file itself in storage
 CREATE TABLE IF NOT EXISTS attachments (
     attachment_id INT UNSIGNED AUTO_INCREMENT,
     attachment_uuid CHAR(36) NOT NULL UNIQUE,
@@ -96,6 +98,7 @@ CREATE TABLE IF NOT EXISTS attachments (
     FOREIGN KEY (uploaded_by) REFERENCES users(user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Obstetrics: OB details for when the nature of call is OB
 CREATE TABLE IF NOT EXISTS obstetrics (
     chart_id INT UNSIGNED NOT NULL,
     gravida INT UNSIGNED,
@@ -120,6 +123,7 @@ CREATE TABLE IF NOT EXISTS obstetrics (
     FOREIGN KEY (chart_id) REFERENCES charts(chart_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Patient info: Patient facts as recorded for the visit such as age, weight
 CREATE TABLE IF NOT EXISTS chart_patient_info (
     chart_id INT UNSIGNED NOT NULL,
     weight DECIMAL(5,1),
@@ -137,6 +141,7 @@ CREATE TABLE IF NOT EXISTS chart_patient_info (
     FOREIGN KEY (chart_id) REFERENCES charts(chart_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Transport info: Hand off to another facility, for both call types
 CREATE TABLE IF NOT EXISTS transports (
     chart_id INT UNSIGNED NOT NULL,
     destination VARCHAR(100),
@@ -146,6 +151,7 @@ CREATE TABLE IF NOT EXISTS transports (
     FOREIGN KEY (chart_id) REFERENCES charts(chart_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Vehicle Accident: Crash details for trauma calls
 CREATE TABLE IF NOT EXISTS vehicle_accident (
     chart_id INT UNSIGNED NOT NULL,
     type ENUM('auto_into_object','auto_into_auto','motorcycle','atv','boat','aviation'),
@@ -157,6 +163,7 @@ CREATE TABLE IF NOT EXISTS vehicle_accident (
     FOREIGN KEY (chart_id) REFERENCES charts(chart_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Consent forms: A signed consent or AMA form, signature image is an attachment
 CREATE TABLE IF NOT EXISTS chart_forms (
     chart_form_id INT UNSIGNED AUTO_INCREMENT,
     chart_id INT UNSIGNED NOT NULL,
@@ -170,7 +177,7 @@ CREATE TABLE IF NOT EXISTS chart_forms (
     FOREIGN KEY (chart_id) REFERENCES charts(chart_id) ON DELETE CASCADE,
     FOREIGN KEY (signature_attachment_id) REFERENCES attachments(attachment_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
+ -- Chart crew: A person on an ambulance call
 CREATE TABLE IF NOT EXISTS chart_crew (
     crew_member_id INT UNSIGNED AUTO_INCREMENT,
     chart_id INT UNSIGNED NOT NULL,
@@ -197,6 +204,7 @@ CREATE TABLE IF NOT EXISTS wound_care (
     FOREIGN KEY (chart_id) REFERENCES charts(chart_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Medication administered: One medication administered (many per chart)
 CREATE TABLE IF NOT EXISTS medications_given (
     medication_given_id INT UNSIGNED AUTO_INCREMENT,
     chart_id INT UNSIGNED NOT NULL,
@@ -213,6 +221,7 @@ CREATE TABLE IF NOT EXISTS medications_given (
     FOREIGN KEY (given_by) REFERENCES users(user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Procedure: One procedure, details hold info specific to that procedure
 CREATE TABLE IF NOT EXISTS procedures_performed (
     procedure_performed_id INT UNSIGNED AUTO_INCREMENT,
     chart_id INT UNSIGNED NOT NULL,
@@ -226,6 +235,7 @@ CREATE TABLE IF NOT EXISTS procedures_performed (
     FOREIGN KEY (performed_by) REFERENCES users(user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Fluid Entry: One fluid type in one phase, total is calculated rather than stored
 CREATE TABLE IF NOT EXISTS fluid_intake_output (
     fluid_entry_id INT UNSIGNED AUTO_INCREMENT,
     chart_id INT UNSIGNED NOT NULL,
@@ -237,8 +247,56 @@ CREATE TABLE IF NOT EXISTS fluid_intake_output (
     FOREIGN KEY (chart_id) REFERENCES charts(chart_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Physical exam stores the region by region checkbox. Many rows per chart, one per ticked box
+CREATE TABLE IF NOT EXISTS physical_exam (
+    physical_exam_id INT UNSIGNED AUTO_INCREMENT,
+    chart_id INT UNSIGNED NOT NULL,
+    region ENUM('skin','mental','neurological','head','neck','chest',
+            'abdomen','pelvis','back','upper_arm','lower_arm',
+            'hand_wrist','upper_leg','lower_leg','ankle_foot') NOT NULL,
+    side ENUM('none','left','right') NOT NULL DEFAULT 'none',
+    finding VARCHAR(50) NOT NULL,
+    PRIMARY KEY (physical_exam_id),
+    UNIQUE(chart_id, region, side, finding),
+    FOREIGN KEY (chart_id) REFERENCES charts(chart_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Assessment stores the single set of patient results (such as burn, stroke screening, pulse)
+CREATE TABLE IF NOT EXISTS assessments (
+    chart_id INT UNSIGNED NOT NULL,
+    pulse_strength ENUM('normal','weak','absent','bounding'),
+    pulse_rate ENUM('regular','irregular'),
+    burn_calculation DECIMAL(5,2) NOT NULL DEFAULT 0,
+    stroke_time DATETIME,
+    stroke_facial_droop BOOLEAN,
+    stroke_arm_drift BOOLEAN,
+    stroke_abnormal_speech BOOLEAN,
+    extra_findings TEXT,
+    PRIMARY KEY (chart_id),
+    FOREIGN KEY (chart_id) REFERENCES charts(chart_id) ON DELETE CASCADE
+)ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- Dropdown options for cause of trauma, with English and Spanish labels
+-- new causes are added as rows, no ALTER TABLE command needed
+CREATE TABLE IF NOT EXISTS trauma_causes (
+    trauma_cause_id INT UNSIGNED AUTO_INCREMENT,
+    code VARCHAR(50) NOT NULL UNIQUE,
+    name_en VARCHAR(100) NOT NULL,
+    name_es VARCHAR(100) NOT NULL,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    PRIMARY KEY (trauma_cause_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+ 
+-- Untouched JSON copy of each v1 row, saved before migration so nothing is lost if the conversion to v2 goes wrong.
+CREATE TABLE IF NOT EXISTS charts_v1_archive (
+    archive_id INT UNSIGNED AUTO_INCREMENT,
+    entity VARCHAR(50) NOT NULL,             
+    legacy_id INT UNSIGNED NOT NULL,
+    raw_row JSON NOT NULL,
+    archived_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (archive_id),
+    UNIQUE (entity, legacy_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
 
