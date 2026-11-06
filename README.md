@@ -1,32 +1,65 @@
+# Rescate de San Carlos 
 
-# ePCR System
+## Database setup
 
+Requires Docker Desktop (running)
+1. Copy the env file and set a dev password:
 
-## Installation
+   ```bash
+   cp .env.example .env
+   ```
 
-1. Specify the port number for the backend server to run on in the .env file or leave it blank which will default to PORT 3000.
+2. Start MySQL 8.4 (first start takes ~20 seconds):
 
-2. Run npm install in the backend directory to install all required packages.
+   ```bash
+   docker compose up -d
+   docker compose ps
+   ```
 
-```bash
-npm install
-```
+   Wait until `db` shows `healthy`.
 
-3. Run npm install in the frontend directory to install all required packages.
+3. Create the tables (run the migration in `apps/api/migrations/`):
 
-```bash
-npm install
-```
-4. Specify the database connection in the .env file.
+   ```bash
+   docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate' < apps/api/migrations/0001_init.sql
+   ```
 
-5. Start the React server in the frontend folder. Specify the port number of the React server in the package.json file or leave it blank which will default to 3001.
+4. Load the sample data (run the seeds in `apps/api/seeds/`, after the migration):
 
-```bash
-npm start
-```
+   ```bash
+   docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate' < apps/api/seeds/001_prototype_seed.sql
+   ```
 
-6. Start the node server in the backend folder.
+   No output means success. To run every seed file in order:
 
-```bash
-nodemon app.js
-```
+   ```bash
+   for f in apps/api/seeds/*.sql; do docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate' < "$f"; done
+   ```
+
+5. Open a MySQL prompt and check:
+
+   ```bash
+   docker compose exec db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate'
+   ```
+
+   Try `SHOW DATABASES;` (`rescate` should be in the list), then `SELECT * FROM patients;`. Type `exit` to leave.
+
+### Notes
+
+- Data lives in the `db_data` Docker volume and survives `docker compose down`.
+- To wipe everything and start fresh:
+
+  ```bash
+  docker compose down -v
+  docker compose up -d
+  ```
+
+- Stop the database without deleting data:
+
+  ```bash
+  docker compose down
+  ```
+
+- If `.env` changes after the first start, the password inside the database won't update. Wipe with `down -v` first.
+
+run `npm install` in apps/api and (eventually) apps/web to install necessary dependencies

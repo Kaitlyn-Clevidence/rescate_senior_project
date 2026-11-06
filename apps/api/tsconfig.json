@@ -1,0 +1,17 @@
+// strict == flags values that are missing or have the wrong type
+// modern node modules == typescript uses same import style as ES so imports of own files end in .js
+// no emit == don't output any files, just check types
+// checks only the included folders == src and test
+{
+  "compilerOptions": {
+    "target": "es2023",
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "types": ["node"],
+    "noEmit": true
+  },
+  "include": ["src", "test"]
+}
