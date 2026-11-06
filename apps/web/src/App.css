@@ -1,7 +1,7 @@
 .app {
   width: min(100% - 2rem, 760px);
   margin: 0 auto;
-  padding: 5rem 0;
+  padding: clamp(1.5rem, 8vw, 5rem) 0;
 }
 
 .header {
@@ -54,6 +54,7 @@ h1 {
 }
 
 button {
+  min-height: 2.75rem;
   border: 0;
   border-radius: 0.5rem;
   padding: 0.85rem 1.25rem;
@@ -85,6 +86,23 @@ button:disabled {
   border-radius: 0.75rem;
   padding: 1.5rem;
   background: #fff;
+}
+
+.cache-notice,
+.cache-status {
+  margin: 0 0 1rem;
+  color: #536777;
+  font-size: 0.9rem;
+}
+
+.cache-notice {
+  border-left: 3px solid #1976a3;
+  padding-left: 0.75rem;
+}
+
+.cache-status {
+  margin: 1.5rem 0 0;
+  color: #708391;
 }
 
 .empty-state,
@@ -123,4 +141,28 @@ dd {
   margin: 0.25rem 0 0;
   color: #123047;
   overflow-wrap: anywhere;
+}
+
+@media (max-width: 520px) {
+  .app {
+    width: min(100% - 1.25rem, 760px);
+  }
+
+  .language-toggle {
+    justify-content: stretch;
+    margin-bottom: 2.5rem;
+  }
+
+  .language-button {
+    flex: 1;
+    min-height: 2.75rem;
+  }
+
+  .intro {
+    font-size: 1rem;
+  }
+
+  .display {
+    padding: 1rem;
+  }
 }
