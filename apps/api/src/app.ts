@@ -1,50 +1,58 @@
 // Author(s): Sophia Koshy
 // Start date: 2026-11-05
-// Last updated: 2026-11-05
+// Last updated: 2026-11-06
 // P4: Prototype 
 // Purpose: builds the Fastify app and receives the repository through dependency injection
 
 import Fastify from "fastify";
 import cors from "@fastify/cors";
 
-export interface PatientRepository {
-  getPatientById(id: number): Promise<unknown | undefined>;
-}
+import type { ChartRepository } from "../repositories/ChartRepository";
+import { config } from "../config";
 
-export function buildApp(repository: PatientRepository) {
+export function buildApp(repository: ChartRepository) {
   const app = Fastify({
-    logger: true,
+    logger: process.env.NODE_ENV !== "test",
   });
 
   app.register(cors, {
-    origin: "http://localhost:5173",
+    origin: config.corsOrigin,
   });
 
+  // List all charts
+  app.get("/charts", async () => {
+    return repository.listCharts();
+  });
+
+  // Get one chart
   app.get<{ Params: { id: number } }>(
-    "/api/patients/:id",
+    "/charts/:id",
     {
       schema: {
         params: {
           type: "object",
           required: ["id"],
           properties: {
-            id: { type: "integer" },
+            id: {
+              type: "integer",
+              minimum: 1,
+            },
           },
         },
       },
     },
     async (request, reply) => {
-      const id = request.params.id;
+      const chart = await repository.getChartById(
+        request.params.id
+      );
 
-      const patient = await repository.getPatientById(id);
-
-      if (!patient) {
+      if (!chart) {
         return reply.code(404).send({
-          error: "Patient not found",
+          error: "Chart not found",
         });
       }
 
-      return reply.code(200).send(patient);
+      return chart;
     }
   );
 
