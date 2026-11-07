@@ -5,7 +5,8 @@
 // Purpose: data layer repository for chart table; 
 // contains queries to the chart table and methods to interract with chart
 
-import type mysql from "mysql2/promise";
+import { sql, type Kysely } from "kysely";
+import type { Database } from "../db/types.js";
 
 export interface Chart {
   chart_id: number;
@@ -20,50 +21,27 @@ export interface ChartRepository {
 }
 
 export function createChartRepository(
-  pool: mysql.Pool
+  db: Kysely<Database>
 ): ChartRepository {
-  const baseQuery = `
-    SELECT
-      charts.chart_id,
-      charts.encounter_date,
-      charts.nature_of_call,
-      patients.patient_name
-    FROM charts
-    JOIN patients
-      ON charts.patient_id = patients.patient_id
-  `;
+  // shared base SELECT, same idea as before; a function so each call starts fresh
+  const baseQuery = () =>
+    db
+      .selectFrom("charts")
+      .innerJoin("patients", "patients.patient_id", "charts.patient_id")
+      .select([
+        "charts.chart_id",
+        "charts.encounter_date",
+        "charts.nature_of_call",
+        sql<string>`concat(patients.first_name, ' ', patients.last_name)`.as(
+          "patient_name"
+        ),
+      ]);
 
   return {
-    async listCharts() {
-      const [rows] = await pool.execute(
-        `${baseQuery} ORDER BY charts.encounter_date DESC`
-      );
+    listCharts: () =>
+      baseQuery().orderBy("charts.encounter_date", "desc").execute(),
 
-      return rows as Chart[];
-    },
-
-    async getChartById(id: number) {
-      const [rows] = await pool.execute(
-        `${baseQuery} WHERE charts.chart_id = ?`,
-        [id]
-      );
-
-      const charts = rows as Chart[];
-      return charts[0] ?? undefined;
-    },
+    getChartById: (id: number) =>
+      baseQuery().where("charts.chart_id", "=", id).executeTakeFirst(),
   };
-}
-
-export async function getPatientById(
-  pool: mysql.Pool,
-  id: number
-) {
-  const [rows] = await pool.execute(
-    "SELECT * FROM patients WHERE id = ?",
-    [id]
-  );
-
-  const patients = rows as mysql.RowDataPacket[];
-
-  return patients[0] ?? undefined;
 }
