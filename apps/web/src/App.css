@@ -1,3 +1,9 @@
+ /* Author(s): Aidan Madonna */
+ /* Start date: 2026-11-05 */
+ /* Last updated: 2026-11-07 */
+ /* P4: Prototype */
+ /* Purpose: Create a responsive layout for the application */
+
 .app {
   width: min(100% - 2rem, 760px);
   margin: 0 auto;
@@ -16,10 +22,10 @@
 }
 
 .language-button {
-  border: 1px solid #d5e0e6;
+  border: 1px solid var(--color-border);
   border-radius: 999px;
   padding: 0.4rem 0.75rem;
-  color: #536777;
+  color: var(--color-text-muted);
   background: transparent;
   font-size: 0.85rem;
   font-weight: 600;
@@ -27,13 +33,13 @@
 
 .language-button:hover:not(:disabled),
 .language-button.active {
-  color: #125b7e;
-  background: #e8f5fa;
+  color: var(--color-primary);
+  background: var(--color-tint);
 }
 
 .eyebrow {
   margin: 0 0 0.75rem;
-  color: #1976a3;
+  color: var(--color-primary);
   font-size: 0.8rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -42,14 +48,14 @@
 
 h1 {
   margin: 0;
-  color: #123047;
+  color: var(--color-text);
   font-size: clamp(2.5rem, 7vw, 4.5rem);
   line-height: 1;
 }
 
 .intro {
   margin: 1rem 0 0;
-  color: #536777;
+  color: var(--color-text-muted);
   font-size: 1.1rem;
 }
 
@@ -58,19 +64,19 @@ button {
   border: 0;
   border-radius: 0.5rem;
   padding: 0.85rem 1.25rem;
-  color: #fff;
-  background: #1976a3;
+  color: var(--color-on-primary);
+  background: var(--color-primary);
   cursor: pointer;
   font: inherit;
   font-weight: 700;
 }
 
 button:hover:not(:disabled) {
-  background: #125b7e;
+  background: var(--color-primary-hover);
 }
 
 button:focus-visible {
-  outline: 3px solid #8bd1ef;
+  outline: 3px solid var(--color-focus);
   outline-offset: 3px;
 }
 
@@ -82,27 +88,27 @@ button:disabled {
 .display {
   min-height: 10rem;
   margin-top: 2rem;
-  border: 1px solid #d5e0e6;
+  border: 1px solid var(--color-border);
   border-radius: 0.75rem;
   padding: 1.5rem;
-  background: #fff;
+  background: var(--color-surface);
 }
 
 .cache-notice,
 .cache-status {
   margin: 0 0 1rem;
-  color: #536777;
+  color: var(--color-text-muted);
   font-size: 0.9rem;
 }
 
 .cache-notice {
-  border-left: 3px solid #1976a3;
+  border-left: 3px solid var(--color-primary);
   padding-left: 0.75rem;
 }
 
 .cache-status {
   margin: 1.5rem 0 0;
-  color: #708391;
+  color: var(--color-text-subtle);
 }
 
 .empty-state,
@@ -111,11 +117,11 @@ button:disabled {
 }
 
 .empty-state {
-  color: #708391;
+  color: var(--color-text-subtle);
 }
 
 .error {
-  color: #b42318;
+  color: var(--color-danger);
 }
 
 .patient-fields {
@@ -130,7 +136,7 @@ button:disabled {
 }
 
 dt {
-  color: #536777;
+  color: var(--color-text-muted);
   font-size: 0.78rem;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -139,7 +145,7 @@ dt {
 
 dd {
   margin: 0.25rem 0 0;
-  color: #123047;
+  color: var(--color-text);
   overflow-wrap: anywhere;
 }
 
@@ -164,5 +170,116 @@ dd {
 
   .display {
     padding: 1rem;
+  }
+}
+
+.lookup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: flex-end;
+}
+
+.lookup label {
+  display: grid;
+  gap: 0.25rem;
+  color: var(--color-text-muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.lookup select,
+.lookup input,
+.lookup button {
+  box-sizing: border-box;
+  height: 2.75rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 0 0.75rem;
+  font: inherit;
+}
+
+.lookup select,
+.lookup input {
+  color: var(--color-text);
+  background: var(--color-surface);
+}
+
+.lookup input {
+  width: 6rem;
+}
+
+.lookup button {
+  padding-block: 0;
+  border: 0;
+}
+
+.charts-heading {
+  margin: 2rem 0 0.75rem;
+  color: var(--color-text);
+}
+
+.chart-card {
+  margin-bottom: 1rem;
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 1rem;
+}
+
+.theme-toggle {
+  display: flex;
+  gap: 0.25rem;
+  margin-left: 0.75rem;
+}
+
+/* English / Spanish switch: one control, thumb slides to the active language */
+.lang-switch {
+  position: relative;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  width: 5.5rem;
+  min-height: 2.25rem;
+  padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  background: var(--color-tint);
+  font-size: 0.85rem;
+}
+
+.lang-switch:hover:not(:disabled) {
+  background: var(--color-tint);
+}
+
+.lang-switch-option {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  transition: color 0.2s;
+}
+
+.lang-switch-thumb {
+  position: absolute;
+  inset: 2px auto 2px 2px;
+  width: calc(50% - 2px);
+  border-radius: 999px;
+  background: var(--color-primary);
+  transition: transform 0.2s;
+}
+
+.lang-switch[aria-checked="false"] .lang-switch-option:nth-of-type(2),
+.lang-switch[aria-checked="true"] .lang-switch-option:nth-of-type(3) {
+  color: var(--color-on-primary);
+}
+
+.lang-switch[aria-checked="true"] .lang-switch-thumb {
+  transform: translateX(100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lang-switch-thumb,
+  .lang-switch-option {
+    transition: none;
   }
 }

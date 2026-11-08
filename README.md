@@ -1,65 +1,108 @@
-# Rescate de San Carlos 
+# Rescate de San Carlos: ePCR 2.0 (prototype)
 
-## Database setup
+Rewrite of the Rescate patient care report system. The current goal is the P4 prototype: prove the stack end to end, from database to API to web page.
 
-Requires Docker Desktop (running)
-1. Copy the env file and set a dev password:
+```
+Browser (React + Vite)  →  Fastify routes  →  Repositories (Kysely)  →  MySQL 8 (Docker)
+```
 
+## Current Status
+
+- **Database:** MySQL 8.4 in Docker. `0001_init.sql` creates `patients` and `charts`, and a seed file adds 4 patients and a few charts.
+- **API (`apps/api`):** Fastify with Kysely for queries.
+  - `GET /charts` and `GET /charts/:id`
+  - `GET /patients/:id`
+  - `GET /patients/:id/charts`
+  - Ids are validated as integers (1 or more), unknown ids return 404, and CORS is limited to the web app's address.
+- **Web (`apps/web`):** React + Vite + TypeScript.
+  - Look up by **patient number** (patient details plus all their charts) or **chart number** (one chart).
+  - Dates are shown in readable form.
+  - English/Spanish switch.
+  - Light / Dark / Auto theme. Colors come from variables in `src/index.css`.
+  - The last result is cached in the browser for 30 minutes.
+
+## How to Run
+
+Requires Docker Desktop (running) and Node 24 or newer.
+
+**One-time setup**
+
+1. Create your env file, and set a dev password inside it:
    ```bash
    cp .env.example .env
    ```
-
-2. Start MySQL 8.4 (first start takes ~20 seconds):
-
+2. Install dependencies:
+   ```bash
+   (cd apps/api && npm install)
+   ```
+   ```bash
+   (cd apps/web && npm install)
+   ```
+3. Start the database and wait until `db` shows `healthy`:
    ```bash
    docker compose up -d
    docker compose ps
    ```
-
-   Wait until `db` shows `healthy`.
-
-3. Create the tables (run the migration in `apps/api/migrations/`):
-
+4. Create the tables and load sample data:
    ```bash
    docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate' < apps/api/migrations/0001_init.sql
    ```
-
-4. Load the sample data (run the seeds in `apps/api/seeds/`, after the migration):
-
    ```bash
    docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate' < apps/api/seeds/001_prototype_seed.sql
    ```
 
-   No output means success. To run every seed file in order:
+**Every time (two terminals)**
 
-   ```bash
-   for f in apps/api/seeds/*.sql; do docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate' < "$f"; done
-   ```
+```bash
+cd apps/api && npm run dev     # API on http://127.0.0.1:3000
+```
+```bash
+cd apps/web && npm run dev     # web on http://localhost:5173
+```
 
-5. Open a MySQL prompt and check:
+Open **http://localhost:5173**. The web app sends `/api/...` requests to the API through Vite's proxy, which strips the `/api` prefix.
 
-   ```bash
-   docker compose exec db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate'
-   ```
+**Quick checks:** `http://127.0.0.1:3000/charts` and `http://127.0.0.1:3000/patients/1` should return JSON.
 
-   Try `SHOW DATABASES;` (`rescate` should be in the list), then `SELECT * FROM patients;`. Type `exit` to leave.
+## Lint and typecheck
 
-### Notes
+Run these before opening a PR. A clean run prints nothing.
 
-- Data lives in the `db_data` Docker volume and survives `docker compose down`.
-- To wipe everything and start fresh:
+**Web** (`apps/web`)
+```bash
+cd apps/web && npm run lint
+```
+This runs oxlint with the rules in `.oxlintrc.json` (React hooks rules and the React/TypeScript plugins). It prints nothing when it passes.
+```bash
+cd apps/web && npx tsc -b
+```
+This typechecks the app. `npm run build` also runs it before building.
 
-  ```bash
-  docker compose down -v
-  docker compose up -d
-  ```
+**API** (`apps/api`)
+```bash
+cd apps/api && npx tsc --noEmit
+```
+The API has no linter yet, only the typecheck. It reports type errors and doesn't write any files.
 
-- Stop the database without deleting data:
+Imports of files must end in `.js` (for example `./http/app.js`), even though the files are `.ts`. The TypeScript settings require it, and a missing extension is the most common typecheck error.
 
-  ```bash
-  docker compose down
-  ```
+## Troubleshooting
 
-- If `.env` changes after the first start, the password inside the database won't update. Wipe with `down -v` first.
+| Problem | Fix |
+|---|---|
+| API exits naming a missing env variable | Check that `.env` exists in the repo root and has every value from `.env.example` |
+| `ECONNREFUSED ::1` | Set `DB_HOST=127.0.0.1` in `.env` |
+| `/charts` says "Unknown column" | Tables are missing or old. Run `docker compose down -v`, start again, and redo step 4 |
+| Web page doesn't match the API | Clear the `rescate:last-record` key in the browser's Local Storage (the app caches results) |
+| `.env` changed after the first start | The password inside the database won't update. Wipe with `docker compose down -v` first |
 
-run `npm install` in apps/api and (eventually) apps/web to install necessary dependencies
+Other database commands: `docker compose down` stops the database and keeps the data. `docker compose down -v` deletes the data.
+
+## Layout
+
+```
+apps/api/    Fastify API  (src/config, src/db, src/http, src/repositories, migrations/, seeds/)
+apps/web/    React app
+docs/        prototype plan, repo map, to-do list
+legacy/      read-only copy of the old system
+```

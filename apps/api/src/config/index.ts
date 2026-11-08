@@ -1,7 +1,6 @@
 // Author(s): Kaitlyn Clevidence
-// Start date: 2024-06-05
-// Last updated: 2024-06-05
-// P4: Prototype 
+// Start date: 2026-11-07
+// Last updated: 2026-11-07
 // Purpose: only file that reads env variables; fails if something is missing 
 
 function required(name: string): string {
@@ -18,6 +17,6 @@ export const config = {
     password: required('DB_PASSWORD'),
     database: required('DB_NAME'),
   },
-  port: Number(process.env.API_PORT ?? 3000),
-  corsOrigin: process.env.CORS_ORIGIN ?? 'http://localhost:5173',
+  port: Number(process.env.API_PORT || 3000),
+  corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
 };

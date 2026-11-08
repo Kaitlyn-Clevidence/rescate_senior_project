@@ -2,7 +2,7 @@
 // Start date: 2026-11-05
 // Last updated: 2026-11-07
 // P4: Prototype 
-// Purpose: builds the Fastify app and receives the repositories through dependency injection
+// Purpose: builds the Fastify app and receives the repositories through kysely
 
 import Fastify from "fastify";
 import cors from "@fastify/cors";
@@ -85,6 +85,31 @@ export function buildApp(repositories: Repositories) {
       }
 
       return patient;
+    }
+  );
+
+  // List all charts for one patient
+  app.get<{ Params: { id: number } }>(
+    "/patients/:id/charts",
+    {
+      schema: {
+        params: {
+          type: "object",
+          required: ["id"],
+          properties: { id: { type: "integer", minimum: 1 } },
+        },
+      },
+    },
+    async (request, reply) => {
+      const patient = await repositories.patients.getPatientById(
+        request.params.id
+      );
+
+      if (!patient) {
+        return reply.code(404).send({ error: "Patient not found" });
+      }
+
+      return repositories.charts.listChartsByPatientId(request.params.id);
     }
   );
 

@@ -1,6 +1,6 @@
 // Author(s): Kaitlyn Clevidence & Sophia Koshy
-// Start date: 2024-06-05
-// Last updated: 2026-11-06
+// Start date: 2026-11-05
+// Last updated: 2026-11-07
 // P4: Prototype 
 // Purpose: data layer repository for chart table; 
 // contains queries to the chart table and methods to interract with chart
@@ -18,12 +18,13 @@ export interface Chart {
 export interface ChartRepository {
   listCharts(): Promise<Chart[]>;
   getChartById(id: number): Promise<Chart | undefined>;
+  listChartsByPatientId(patientId: number): Promise<Chart[]>;
 }
 
 export function createChartRepository(
   db: Kysely<Database>
 ): ChartRepository {
-  // shared base SELECT, same idea as before; a function so each call starts fresh
+  // shared base SELECT;  each call starts fresh
   const baseQuery = () =>
     db
       .selectFrom("charts")
@@ -43,5 +44,11 @@ export function createChartRepository(
 
     getChartById: (id: number) =>
       baseQuery().where("charts.chart_id", "=", id).executeTakeFirst(),
+
+    listChartsByPatientId: (patientId: number) =>
+      baseQuery()
+        .where("charts.patient_id", "=", patientId)
+        .orderBy("charts.encounter_date", "desc")
+        .execute(),
   };
 }
