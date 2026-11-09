@@ -31,12 +31,21 @@ Requires Docker Desktop (running) and Node 24 or newer.
    ```bash
    cp .env.example .env
    ```
+   **Windows PowerShell:**
+   ```powershell
+   Copy-Item .env.example .env
+   ```
 2. Install dependencies:
    ```bash
    (cd apps/api && npm install)
    ```
    ```bash
    (cd apps/web && npm install)
+   ```
+   **Windows PowerShell:**
+   ```powershell
+   npm --prefix .\apps\api install
+   npm --prefix .\apps\web install
    ```
 3. Start the database and wait until `db` shows `healthy`:
    ```bash
@@ -50,6 +59,11 @@ Requires Docker Desktop (running) and Node 24 or newer.
    ```bash
    docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate' < apps/api/seeds/001_prototype_seed.sql
    ```
+   **Windows PowerShell:** 
+   ```powershell
+   Get-Content -Raw .\apps\api\migrations\0001_init.sql | docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate'
+   Get-Content -Raw .\apps\api\seeds\001_prototype_seed.sql | docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate'
+   ```
 
 **Every time (two terminals)**
 
@@ -58,6 +72,15 @@ cd apps/api && npm run dev     # API on http://127.0.0.1:3000
 ```
 ```bash
 cd apps/web && npm run dev     # web on http://localhost:5173
+```
+**Windows PowerShell:** Run these in separate terminals:
+```powershell
+Set-Location .\apps\api
+npm run dev
+```
+```powershell
+Set-Location .\apps\web
+npm run dev
 ```
 
 Open **http://localhost:5173**. The web app sends `/api/...` requests to the API through Vite's proxy, which strips the `/api` prefix.
@@ -77,12 +100,23 @@ This runs oxlint with the rules in `.oxlintrc.json` (React hooks rules and the R
 cd apps/web && npx tsc -b
 ```
 This typechecks the app. `npm run build` also runs it before building.
+**Windows PowerShell:**
+```powershell
+Set-Location .\apps\web
+npm run lint
+npx tsc -b
+```
 
 **API** (`apps/api`)
 ```bash
 cd apps/api && npx tsc --noEmit
 ```
 The API has no linter yet, only the typecheck. It reports type errors and doesn't write any files.
+**Windows PowerShell:**
+```powershell
+Set-Location .\apps\api
+npx tsc --noEmit
+```
 
 Imports of files must end in `.js` (for example `./http/app.js`), even though the files are `.ts`. The TypeScript settings require it, and a missing extension is the most common typecheck error.
 
