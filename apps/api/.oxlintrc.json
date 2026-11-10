@@ -1,0 +1,10 @@
+{
+  "plugins": ["typescript", "oxc", "node"],
+  "categories": { "correctness": "error" },
+  "rules": {
+    "no-console": "warn",
+    "eqeqeq": "error",
+    "typescript/no-explicit-any": "warn",
+    "typescript/consistent-type-imports": "error"
+  }
+}

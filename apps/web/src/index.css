@@ -1,0 +1,87 @@
+/* Author(s): Aidan Madonna, Kaitlyn Clevidence */
+/* Start date: 2026-11-05 */
+/* Last updated: 2026-11-07 */
+/* P4: Prototype */
+/* Purpose: Define the global styles for the application */
+
+:root {
+  /* raw palette: the only place hex codes live. Components use the --color-* roles below. */
+  --blue-100: #f3f6f9;
+  --blue-200: #d0dcea;
+  --blue-300: #acc2da;
+  --blue-500: #658fbb;
+  --blue-700: #395c81;
+  --blue-800: #20354a;
+  --blue-900: #1a2a3a;
+  --red-500: #e0443d;
+  --white: #ffffff;
+
+  /* light theme (default) */
+  color-scheme: light;
+  --color-bg: var(--blue-100);
+  --color-surface: var(--white);
+  --color-border: var(--blue-200);
+  --color-tint: var(--blue-200);
+  --color-text: var(--blue-900);
+  --color-text-muted: var(--blue-700);
+  --color-text-subtle: var(--blue-700);
+  --color-primary: var(--blue-700);
+  --color-primary-hover: var(--blue-800);
+  --color-on-primary: var(--white);
+  --color-focus: var(--blue-500);
+  --color-danger: var(--red-500);
+
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "DM Sans", sans-serif;
+  color: var(--color-text);
+  background: var(--color-bg);
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* dark when the OS asks for it, unless the user forced light */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-bg: var(--blue-900);
+    --color-surface: var(--blue-800);
+    --color-border: var(--blue-700);
+    --color-tint: var(--blue-800);
+    --color-text: var(--blue-100);
+    --color-text-muted: var(--blue-200);
+    --color-text-subtle: var(--blue-300);
+    --color-primary: var(--blue-300);
+    --color-primary-hover: var(--blue-200);
+    --color-on-primary: var(--blue-900);
+    --color-focus: var(--blue-300);
+    --color-danger: var(--red-500);
+  }
+}
+
+/* dark when the user forced it */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-bg: var(--blue-900);
+  --color-surface: var(--blue-800);
+  --color-border: var(--blue-700);
+  --color-tint: var(--blue-800);
+  --color-text: var(--blue-100);
+  --color-text-muted: var(--blue-200);
+  --color-text-subtle: var(--blue-300);
+  --color-primary: var(--blue-300);
+  --color-primary-hover: var(--blue-200);
+  --color-on-primary: var(--blue-900);
+  --color-focus: var(--blue-300);
+  --color-danger: var(--red-500);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  margin: 0;
+}

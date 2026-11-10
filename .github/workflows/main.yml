@@ -1,25 +1,120 @@
-# .github/workflows/main.yml
-name: Rescate Senior Proj
+# Author(s): Kaitlyn Clevidence
+# Start date: 2026-11-07
+# Last updated: 2026-11-07
+# Purpose: Workflow running tests for the API and web apps on every push / PR. 
+
+name: build-and-test
 
 on:
-  push:
   pull_request:
+  push:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
-  build-and-test:
+  api:
+    name: API (typecheck + tests)
     runs-on: ubuntu-latest
 
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ci_password
+          MYSQL_DATABASE: rescate
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -pci_password"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+
+    env:
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_USER: root
+      DB_PASSWORD: ci_password
+      DB_NAME: rescate
+
+    defaults:
+      run:
+        working-directory: apps/api
+
     steps:
-      # Step 1: Check out the repository code onto the runner
-      - name: Checkout repository code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # Step 2: Print a status message to the console logs
-      - name: Log message
-        run: echo "Code checked out successfully. Running environment tests..."
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-coverage
+          path: apps/api/coverage
 
-      # Step 3: Check system software versions
-      - name: Verify Node and NPM versions
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/api/package-lock.json
+
+      - run: npm ci
+
+      - name: Typecheck
+        run: npx tsc --noEmit
+
+      - name: Lint
+        run: npm run lint
+      
+      - name: Create tables and load seed data
+        working-directory: .
+        env:
+          MYSQL_PWD: ci_password
         run: |
-          node -v
-          npm -v
+          sudo apt-get install -y mysql-client
+          mysql -h 127.0.0.1 -uroot rescate < apps/api/migrations/0001_init.sql
+          mysql -h 127.0.0.1 -uroot rescate < apps/api/seeds/001_prototype_seed.sql
+
+      # RUN_DB_TESTS=1 runs the tests that talk to the real database
+      - name: Test with coverage
+        env:
+          RUN_DB_TESTS: 1
+        run: npm run test:coverage
+
+  web:
+    name: Web (lint, build, tests)
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: apps/web
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: web-coverage
+          path: apps/web/coverage
+
+      - run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      # runs the typecheck (tsc -b), then the production build
+      - name: Build
+        run: npm run build
+
+      - name: Test
+        run: npm run test:coverage
