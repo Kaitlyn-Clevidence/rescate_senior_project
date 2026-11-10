@@ -20,7 +20,7 @@
     "node": ">=24"
   },
   "dependencies": {
-    "@fastify/cors": "^11.4.0",
+    "@fastify/cors": "^11.4.1",
     "fastify": "^5.12.8",
     "kysely": "^0.29.8",
     "mysql2": "^3.24.6"
