@@ -31,7 +31,36 @@ export interface ChartsTable {
   form_version: Generated<number>;
 }
 
+export interface UsersTable {
+  user_id: Generated<number>;
+  username: string | null;
+  password_hash: string | null;
+  email: string;
+  phone: string | null;
+  name: string | null;
+  role: Generated<"admin" | "provider" | "board" | "trainee">;
+  certifications: string | null;
+  language_preferred: Generated<"en" | "es">;
+  is_active: Generated<number>
+  invited_by: number | null;
+  created_at: Generated<Date>;
+  password_set_at: Date | null;
+  last_login_at: Date | null;
+}
+
+export interface UserTokensTable {
+  token_id: Generated<number>;
+  user_id: number;
+  token_hash: string;
+  purpose: "setup" | "reset";
+  expires_at: Date;
+  used_at: Date | null;
+  created_at: Generated<Date>;
+}
+
 export interface Database {
   patients: PatientsTable;
   charts: ChartsTable;
+  users: UsersTable;
+  user_tokens: UserTokensTable;
 }
