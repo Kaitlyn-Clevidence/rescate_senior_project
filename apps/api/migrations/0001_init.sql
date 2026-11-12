@@ -1,6 +1,6 @@
--- Author(s): Kaitlyn Clevidence
--- Start date: 2024-06-05
--- Last updated: 2024-06-05
+-- Author(s): Isabel Sullivan
+-- Start date: 2024-11-05
+-- Last updated: 2026-11-09
 -- P4: Prototype 
 -- Purpose: initial migration for the api database; 
 -- creates tables and constraints for patients and charts
