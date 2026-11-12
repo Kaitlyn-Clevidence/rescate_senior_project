@@ -1,6 +1,6 @@
 //  Author(s): Kaitlyn Clevidence, Isabel Sullivan
 //  Start date: 2024-11-07
-//  Last updated: 2026-11-09
+//  Last updated: 2026-11-11
 //  P4: Prototype 
 //  Purpose: define kysely types for the database tables; 
 //  used to type the database connection and queries; 
@@ -33,6 +33,9 @@ export interface ChartsTable {
   form_version: Generated<number>;
   created_at: Generated<Date>;
   submitted_at: Date | null;
+  chart_uuid: string | null;
+  incident_number: string | null;
+  needs_review: Generated<number>;
 }
 
 export interface Database {
