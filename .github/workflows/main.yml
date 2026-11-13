@@ -75,7 +75,7 @@ jobs:
           MYSQL_PWD: ci_password
         run: |
           sudo apt-get install -y mysql-client
-          mysql -h 127.0.0.1 -uroot rescate < apps/api/migrations/0001_init.sql
+          for f in apps/api/migrations/*.sql; do mysql -h 127.0.0.1 -uroot rescate < "$f"; done
           mysql -h 127.0.0.1 -uroot rescate < apps/api/seeds/001_prototype_seed.sql
 
       # RUN_DB_TESTS=1 runs the tests that talk to the real database
