@@ -1,6 +1,6 @@
-// Author(s): Kaitlyn Clevidence
+// Author(s): Kaitlyn Clevidence, Isabel Sullivan
 // Start date: 2026-11-07
-// Last updated: 2026-11-07
+// Last updated: 2026-11-14
 // Purpose: only file that reads env variables; fails if something is missing 
 
 function required(name: string): string {
@@ -19,4 +19,14 @@ export const config = {
   },
   port: Number(process.env.API_PORT || 3000),
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  
+  //Default points to Mailpit in docker, production will set these to mail service provider
+  mail: {
+    host: process.env.SMTP_HOST || 'localhost',
+    port: Number(process.env.SMTP_PORT || 1025),
+    user: process.env.SMTP_USER || undefined,
+    password: process.env.SMTP_PASSWORD || undefined,
+    from: process.env.MAIL_FROM || 'Rescate de San Carlos <no-reply@localhost>',
+  },
+  appUrl: process.env.APP_URL || 'http://localhost:5173',
 };
