@@ -20,15 +20,15 @@
     "node": ">=24"
   },
   "dependencies": {
-    "@fastify/cors": "^11.4.0",
+    "@fastify/cors": "^11.4.3",
     "fastify": "^5.12.8",
-    "kysely": "^0.29.8",
+    "kysely": "^0.29.9",
     "mysql2": "^3.24.6"
   },
   "devDependencies": {
     "@types/node": "^24.19.2",
     "@vitest/coverage-v8": "^5.1.0",
-    "oxlint": "^1.92.0",
+    "oxlint": "^1.93.0",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
     "vitest": "^5.1.0"
