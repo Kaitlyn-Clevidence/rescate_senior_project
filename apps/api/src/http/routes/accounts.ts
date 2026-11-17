@@ -7,7 +7,6 @@
 
 import type { FastifyInstance } from "fastify";
 import type { AccountService, InviteRequest } from "../../services/AccountService.js";
-import { error } from "console";
 
 
 //What the setup page sends
