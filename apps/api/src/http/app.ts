@@ -1,6 +1,6 @@
-// Author(s): Sophia Koshy & Kaitlyn Clevidence
+// Author(s): Sophia Koshy, Kaitlyn Clevidence, Isabel Sullivan
 // Start date: 2026-11-05
-// Last updated: 2026-11-07
+// Last updated: 2026-11-16
 // P4: Prototype 
 // Purpose: builds the Fastify app and receives the repositories through kysely
 
@@ -9,6 +9,8 @@ import cors from "@fastify/cors";
 
 import type { ChartRepository } from "../repositories/ChartRepository.js";
 import type { PatientRepository } from "../repositories/PatientRepository.js";
+import type { AccountService } from "../services/AccountService.js"
+import { registerAccountRoutes } from "./routes/accounts.js";
 import { config } from "../config/index.js";
 
 
@@ -17,7 +19,13 @@ export interface Repositories {
   patients: PatientRepository;
 }
 
-export function buildApp(repositories: Repositories) {
+// Services are optional "?" so tests only need charts and patients to keep working
+export interface Services {
+  accounts?: AccountService;
+}
+
+// = {} keeps existing buildapp calls working (services optional)
+export function buildApp(repositories: Repositories, services: Services = {}) {
   const app = Fastify({
     logger: process.env.NODE_ENV !== "test",
   });
@@ -112,6 +120,8 @@ export function buildApp(repositories: Repositories) {
       return repositories.charts.listChartsByPatientId(request.params.id);
     }
   );
-
+  if(services.accounts){
+    registerAccountRoutes(app, services.accounts);
+  }
   return app;
 }
