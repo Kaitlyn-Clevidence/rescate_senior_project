@@ -6,16 +6,16 @@
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { buildApp, type Repositories } from "../src/http/app.js";
-import type { Chart } from "../src/repositories/ChartRepository.js";
+import type { ChartSummary } from "../src/repositories/ChartRepository.js";
 import type { Patient } from "../src/repositories/PatientRepository.js";
 
-const chart1: Chart = {
+const chart1: ChartSummary = {
   chart_id: 1,
   encounter_date: new Date("2024-01-15T18:00:00.000Z"),
   nature_of_call: "B/P check",
   patient_name: "Izzy Sullivan",
 };
-const chart2: Chart = {
+const chart2: ChartSummary = {
   chart_id: 2,
   encounter_date: new Date("2024-02-20T22:30:00.000Z"),
   nature_of_call: "Vehicle Accident",
@@ -45,6 +45,7 @@ function makeRepositories(): Repositories {
       getChartById: async (id) => charts.find((c) => c.chart_id === id),
       listChartsByPatientId: async (patientId) =>
         patientId === 3 ? [chart2] : [],
+      insertSubmitted: async () => ({ chart_id: 99, chart_uuid: "fake-uuid" }),
     },
     patients: {
       getPatientById: async (id) => patients.find((p) => p.patient_id === id),
