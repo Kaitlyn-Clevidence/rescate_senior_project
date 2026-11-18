@@ -34,6 +34,15 @@ export interface ClinicVisit {
 
 export interface AmbulanceCall {
   call_category: "scene" | "transfer";
+  incident_location?: string;
+  incident_address?: string;
+  mass_casualty_incident?: boolean; // the DB defaults to false
+  patient_count?: number;
+  agencies?: string;
+  disposition?: string;
+  unit_number?: string;
+  triage_color?: string;
+  care_level?: string;
   dispatch_at?: Date;
   enroute_at?: Date;
   arrive_scene_at?: Date;
@@ -137,6 +146,41 @@ export interface ConsentForm {
   signature_key?: string;
 }
 
+export interface ProcedurePerformed {
+  procedure_code: string;
+  performed_at: Date;
+  performed_by: number; // user_id, NOT NULL in the DB
+  details?: unknown; // JSON, shape depends on procedure_code
+  notes?: string;
+}
+
+export interface FluidEntry {
+  kind: "bleeding" | "iv fluids" | "oral fluids" | "vomit";
+  phase: "pre transport" | "transport";
+  amount: number;
+}
+
+// One ticked box on the physical exam. A chart has many of these.
+export interface PhysicalExamFinding {
+  region:
+    | "skin" | "mental" | "neurological" | "head" | "neck" | "chest"
+    | "abdomen" | "pelvis" | "back" | "upper_arm" | "lower_arm"
+    | "hand_wrist" | "upper_leg" | "lower_leg" | "ankle_foot";
+  side?: "none" | "left" | "right"; // the DB defaults to "none"
+  finding: string;
+}
+
+export interface Assessment {
+  pulse_strength?: "normal" | "weak" | "absent" | "bounding";
+  pulse_rate?: "regular" | "irregular";
+  burn_calculation?: number; // DECIMAL(5,2); the DB defaults to 0
+  stroke_time?: Date;
+  stroke_facial_droop?: boolean;
+  stroke_arm_drift?: boolean;
+  stroke_abnormal_speech?: boolean;
+  extra_findings?: string;
+}
+
 // One slot per section. One-row sections are objects, many-row are arrays.
 export interface ChartSections {
   chart_patient_info?: ChartPatientInfo;
@@ -146,6 +190,10 @@ export interface ChartSections {
   obstetrics?: Obstetrics;
   transport?: Transport;
   consent_forms?: ConsentForm[];
+  procedures_performed?: ProcedurePerformed[];
+  fluid_intake_output?: FluidEntry[];
+  physical_exam?: PhysicalExamFinding[];
+  assessments?: Assessment;
 }
 
 // ---- Patient ----

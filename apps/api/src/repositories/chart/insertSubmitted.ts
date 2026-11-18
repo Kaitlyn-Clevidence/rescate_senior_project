@@ -12,8 +12,9 @@ import type {
   NewClinicChart,
   PatientRef,
 } from "../../domain/Chart.js";
-import { insertedId } from "./helpers.js";
+import { insertedId } from "../helpers.js";
 import { writeClinicVisit, writeVitals } from "./sectionWriters.js";
+import { insertPatient } from "../patientWriter.js";
 
 export interface SavedChart {
   chart_id: number;
@@ -39,21 +40,7 @@ async function resolvePatientId(
   ref: PatientRef
 ): Promise<number> {
   if ("patient_id" in ref) return ref.patient_id;
-
-  const p = ref.new_patient;
-  const result = await db
-    .insertInto("patients")
-    .values({
-      first_name: p.first_name,
-      last_name: p.last_name,
-      phone: p.phone ?? null,
-      email: p.email ?? null,
-      home_address: p.home_address ?? null,
-      birth_date: p.birth_date ?? null,
-      gender: p.gender,
-    })
-    .executeTakeFirstOrThrow();
-  return insertedId(result);
+  return insertPatient(db, ref.new_patient);
 }
 
 export async function insertSubmittedChart(

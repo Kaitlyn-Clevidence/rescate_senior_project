@@ -41,8 +41,6 @@ export interface ChartsTable {
   patient_id: number;
   trauma_cause_id: number | null;
   created_by: number | null;
-  trauma_cause_id: number | null;
-  created_by: number | null;
   nature_of_call: string;
   call_type: CallType;
   encounter_date: Date;

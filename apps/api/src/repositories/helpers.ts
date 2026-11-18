@@ -13,3 +13,9 @@ export function insertedId(result: InsertResult): number {
   }
   return Number(result.insertId);
 }
+
+// Nullable BOOLEAN columns: "not answered" must stay NULL, not become 0 (no).
+export function boolToDb(value: boolean | undefined): 0 | 1 | null {
+  if (value === undefined) return null;
+  return value ? 1 : 0;
+}

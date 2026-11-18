@@ -49,6 +49,8 @@ function makeRepositories(): Repositories {
     },
     patients: {
       getPatientById: async (id) => patients.find((p) => p.patient_id === id),
+      create: async () => aidan,
+      findCandidates: async () => [],
     },
   };
 }

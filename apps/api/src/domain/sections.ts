@@ -105,6 +105,36 @@ export const SECTION_REGISTRY = {
     short_form: "always",
     full_chart: "always",
   },
+  // TODO: which natures require these four is undecided. "never" means they
+  // can be saved but are not forced on the form.
+  procedures_performed: {
+    table: "procedures_performed",
+    cardinality: "many",
+    call_types: ["clinic", "ambulance"],
+    short_form: "never",
+    full_chart: "never",
+  },
+  fluid_intake_output: {
+    table: "fluid_intake_output",
+    cardinality: "many",
+    call_types: ["clinic", "ambulance"],
+    short_form: "never",
+    full_chart: "never",
+  },
+  physical_exam: {
+    table: "physical_exam",
+    cardinality: "many",
+    call_types: ["clinic", "ambulance"],
+    short_form: "never",
+    full_chart: "never",
+  },
+  assessments: {
+    table: "assessments",
+    cardinality: "one",
+    call_types: ["clinic", "ambulance"],
+    short_form: "never",
+    full_chart: "never",
+  },
 } as const satisfies Record<SectionKey, SectionRule>;
 
 // Widened view of the registry. The literal type from "as const" makes
