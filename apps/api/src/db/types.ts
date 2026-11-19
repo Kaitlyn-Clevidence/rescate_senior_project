@@ -16,7 +16,7 @@ export interface PatientsTable {
   email: string | null; 
   home_address: string | null;
   birth_date: Date | null;
-  gender: string;
+  gender: string | null;
 }
 
 export interface ChartsTable {
