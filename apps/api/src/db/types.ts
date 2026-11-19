@@ -10,13 +10,13 @@ import type { Generated } from "kysely";
 
 export interface PatientsTable {
   patient_id: Generated<number>;
-  first_name: string;
-  last_name: string;
+  first_name: string | null;
+  last_name: string | null;
   phone: string | null;
   email: string | null; 
   home_address: string | null;
   birth_date: Date | null;
-  gender: string;
+  gender: string | null;
 }
 
 export interface ChartsTable {
@@ -29,13 +29,13 @@ export interface ChartsTable {
   call_type: "clinic" | "ambulance";
   encounter_date: Date;
   is_completed: Generated<number>; // MySQL booleans arrive as 0/1
-  is_practice: Generated<number>;
   form_version: Generated<number>;
   created_at: Generated<Date>;
   submitted_at: Date | null;
   chart_uuid: string | null;
   incident_number: string | null;
   needs_review: Generated<number>;
+  narrative: string | null;
 }
 
 export interface Database {

@@ -9,10 +9,10 @@ import type { Database } from "../db/types.js";
 
 export interface Patient {
   patient_id: number;
-  first_name: string;
-  last_name: string;
+  first_name: string | null;
+  last_name: string | null;
   birth_date: Date | null;
-  gender: string;
+  gender: string | null;
 }
 
 export interface PatientRepository {
