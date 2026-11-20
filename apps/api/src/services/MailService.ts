@@ -22,41 +22,54 @@ export interface MailService {
     sendReset(to: string, link: string, language: Language, expiresInMinutes: number): Promise<void>;
 }
 
+//Turns a link lifetime into words, e.g. 10 -> "10 minutes", 1440 -> "24 hours"
+export function formatDuration(minutes: number, language: Language): string {
+    const words = {
+        en: {minute: ["minute", "minutes"], hour: ["hour", "hours"]},
+        es: {minute: ["minuto", "minutos"], hour: ["hora", "horas"]},
+    }[language];
+    if (minutes >= 60 && minutes % 60 === 0) {
+        const hours = minutes / 60;
+        return `${hours} ${words.hour[hours === 1 ? 0 : 1]}`;
+    }
+    return `${minutes} ${words.minute[minutes === 1 ? 0 : 1]}`;
+}
+
 //Email wording in each language
 const messages = {
     setup: {
         en: {
             subject: "Set up your Rescate de San Carlos account",
-            body: (link: string, minutes: number) =>
+            body: (link: string, expires: string) =>
                 `You've been invited to set up your account in the Rescate de San Carlos ePCR system. \n\n` +
                 `Open this link to create your password:\n${link}\n\n` +
-                `This link works once and expires in ${minutes} minutes. ` + 
+                `This link works once and expires in ${expires}. ` + 
                 `If you weren't expecting this email, it can be ignored.`,
         },
         es: {
             subject: "Configura tu cuenta de Rescate de San Carlos",
-            body: (link: string, minutes: number) =>
+            body: (link: string, expires: string) =>
                 `Has sido invitado al sistema ePCR de Rescate de San Carlos.\n\n` +
                 `Abre este enlace para crear tu contraseña:\n${link}\n\n` +
-                `El enlace funciona una sola vez y vence en ${minutes} minutos. ` +
+                `El enlace funciona una sola vez y vence en ${expires}. ` +
                 `Si no esperabas este correo, puedes ignorarlo.`,
         },
     },
     reset: {
         en: {
             subject: "Reset your Rescate de San Carlos password",
-            body: (link: string, minutes: number) =>
+            body: (link: string, expires: string) =>
                 `Someone requested to reset the password for this account.\n\n` +
                 `Open this link to choose a new password: \n${link}\n\n` +
-                `This link works once and expires in ${minutes} minutes. ` +
+                `This link works once and expires in ${expires}. ` +
                 `If you didn't request this, you can ignore this email and your password won't change. `,
         },
         es: {
             subject: "Restablece tu contraseña de Rescate de San Carlos",
-            body: (link: string, minutes: number) =>
+            body: (link: string, expires: string) =>
                 `Alguien solicitó restablecer la contraseña de esta cuenta.\n\n` +
                 `Abre este enlace para elegir una nueva contraseña:\n${link}\n\n` +
-                `El enlace funciona una sola vez y vence en ${minutes} minutos. ` +
+                `El enlace funciona una sola vez y vence en ${expires}. ` +
                 `Si no lo solicitaste, puedes ignorar este correo y tu contraseña no cambiará.`,
         },
     },
@@ -75,7 +88,7 @@ export function createMailTransport(config: MailConfig): Transporter{
 export function createMailService(transport: Transporter, from: string): MailService{
     async function send(kind: "setup" | "reset", to: string, link: string, language: Language, minutes: number) {
         const message = messages[kind][language];
-        await transport.sendMail({from, to, subject: message.subject, text: message.body(link, minutes),
+        await transport.sendMail({from, to, subject: message.subject, text: message.body(link, formatDuration(minutes, language)),
         });
     }
     return {

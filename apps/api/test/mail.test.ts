@@ -1,12 +1,12 @@
 // Author(s): Isabel Sullivan
 // Start date: 2026-11-14
-// Last updated: 2026-11-14
+// Last updated: 2026-11-20
 // P5: MVP
 // Purpose: tests MailService with a fake mail server, so no real email is sent
 
 import type { SendMailOptions, Transporter } from "nodemailer";
 import { describe, expect, it } from "vitest";
-import { createMailService } from "../src/services/MailService.js";
+import { createMailService, formatDuration } from "../src/services/MailService.js";
 
 //Fake mail server: keep messages in a list rather than sending it
 function makeMail() {
@@ -57,5 +57,23 @@ describe("MailService", () => {
         expect(sent[0].subject).toBe("Reset your Rescate de San Carlos password");
         expect(sent[1].subject).toBe("Restablece tu contraseña de Rescate de San Carlos");
         expect(sent[1].text).toContain(link);
+    });
+
+    it("says a 24-hour setup link lasts 24 hours, not 1440 minutes", async () => {
+        const {mail, sent} = makeMail();
+        await mail.sendSetup("provider@example.com", link, "en", 1440);
+        await mail.sendSetup("provider@example.com", link, "es", 1440);
+
+        expect(sent[0].text).toContain("expires in 24 hours");
+        expect(sent[1].text).toContain("vence en 24 horas");
+    });
+
+});
+
+describe("formatDuration", () => {
+    it.each([[10, "en", "10 minutes"], [1, "en", "1 minute"], [60, "en", "1 hour"],
+    [1440, "en", "24 hours"], [90, "en", "90 minutes"], [10, "es", "10 minutos"],
+    [60, "es", "1 hora"], [1440, "es", "24 horas"],] as const)("formats %i in %s as %s", (minutes, language, expected) => {
+        expect(formatDuration(minutes, language)).toBe(expected);
     });
 });
