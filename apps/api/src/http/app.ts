@@ -9,6 +9,8 @@ import cors from "@fastify/cors";
 
 import type { ChartRepository } from "../repositories/ChartRepository.js";
 import type { PatientRepository } from "../repositories/PatientRepository.js";
+import type { AddendumService } from "../services/AddendumService.js"
+import { registerAddendumRoutes } from "./routes/addenda.js"
 import { config } from "../config/index.js";
 
 
@@ -17,7 +19,11 @@ export interface Repositories {
   patients: PatientRepository;
 }
 
-export function buildApp(repositories: Repositories) {
+export interface Services {
+  addenda?: AddendumService;
+}
+
+export function buildApp(repositories: Repositories, services: Services = {}) {
   const app = Fastify({
     logger: process.env.NODE_ENV !== "test",
   });
@@ -112,6 +118,8 @@ export function buildApp(repositories: Repositories) {
       return repositories.charts.listChartsByPatientId(request.params.id);
     }
   );
-
+  if(services.addenda) {
+    registerAddendumRoutes(app, services.addenda);
+  }
   return app;
 }

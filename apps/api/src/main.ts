@@ -9,12 +9,19 @@ import { createDb } from "./db/index.js";
 import { createChartRepository } from "./repositories/ChartRepository.js";
 import { createPatientRepository } from "./repositories/PatientRepository.js";
 import { buildApp } from "./http/app.js";
+import { createAddendumRepository } from "./repositories/AddendumRepository.js";
+import { createAddendumService } from "./services/AddendumService.js";
+
 
 const db = createDb(config.db);
+const addenda = createAddendumService(createAddendumRepository(db));
+
 const app = buildApp({
   charts: createChartRepository(db),
   patients: createPatientRepository(db),
-});
+},
+  { addenda }
+);
 try {
   await app.listen({ port: config.port, host: "127.0.0.1" });
 } catch (error) {

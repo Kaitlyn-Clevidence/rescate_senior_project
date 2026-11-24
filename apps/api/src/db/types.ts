@@ -38,7 +38,18 @@ export interface ChartsTable {
   narrative: string | null;
 }
 
+//Addendum notes that are added to a chart after submission
+export interface NotesTable {
+  note_id: Generated<number>;
+  chart_id: number;
+  user_id: number | null;
+  note: string;
+  reason: string;
+  date_added: Generated<Date>;
+}
+
 export interface Database {
   patients: PatientsTable;
   charts: ChartsTable;
+  notes: NotesTable;
 }
