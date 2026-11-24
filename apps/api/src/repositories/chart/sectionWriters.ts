@@ -3,9 +3,7 @@
 // Updated: 11-17-2026
 // P5: MVP
 // Purpose: one small writer per chart section. Each takes the domain object
-// (snake_case, same names as the columns) and inserts its rows. They take a
-// Kysely handle (a transaction in practice) and never open their own
-// transaction.
+// and inserts its rows. They take a Kysely handle (a transaction in practice) 
 // Rules every writer follows:
 //  - a missing optional field is written as NULL (?? null)
 //  - a nullable yes/no column keeps "not answered" as NULL (boolToDb)
@@ -13,6 +11,8 @@
 //    an insert with no rows
 //  - a field the database requires but the domain leaves optional throws a
 //    clear error before any query is sent
+//  - a field the sponsor requires but the database has no column for yet is
+//    refused with a clear error instead of being silently dropped
 
 import type { Kysely } from "kysely";
 import type { Database } from "../../db/types.js";
@@ -22,12 +22,14 @@ import type {
   ChartPatientInfo,
   ClinicVisit,
   ConsentForm,
+  CrewMember,
   FluidEntry,
   MedicationGiven,
   Obstetrics,
   PhysicalExamFinding,
   ProcedurePerformed,
   Transport,
+  VehicleAccident,
   Vital,
   WoundCare,
 } from "../../domain/Chart.js";
@@ -63,6 +65,7 @@ export async function writeAmbulanceCall(
       chart_id: chartId,
       call_category: ambulance.call_category,
       incident_location: ambulance.incident_location ?? null,
+      incident_location_type: ambulance.incident_location_type ?? null,
       incident_address: ambulance.incident_address ?? null,
       // NOT NULL in the DB with a default of false, so unanswered means 0.
       mass_casualty_incident: ambulance.mass_casualty_incident ? 1 : 0,
@@ -106,6 +109,13 @@ export async function writeVitals(
         gcs_verbal: v.gcs_verbal ?? null,
         temperature: v.temperature ?? null,
         pain: v.pain ?? null,
+        responsiveness: v.responsiveness ?? null,
+        rass: v.rass ?? null,
+        mean_arterial_pressure: v.mean_arterial_pressure ?? null,
+        bp_method: v.bp_method ?? null,
+        heart_rate_method: v.heart_rate_method ?? null,
+        ecg: v.ecg ?? null,
+        blood_glucose: v.blood_glucose ?? null,
       }))
     )
     .execute();
@@ -120,32 +130,30 @@ export async function writeMedicationsGiven(
   await db
     .insertInto("medications_given")
     .values(
-      medications.map((m) => {
-        // TODO: given_at is NOT NULL in the DB but the injection short form
-        // has no time field. Remove this check once the column is nullable.
-        if (m.given_at === undefined) {
-          throw new Error(
-            `writeMedicationsGiven: given_at is required by the database (medication "${m.medication_name}")`
-          );
-        }
-        return {
-          chart_id: chartId,
-          medication_name: m.medication_name,
-          dose: m.dose ?? null,
-          unit: m.unit ?? null,
-          route: m.route ?? null,
-          given_at: m.given_at,
-          given_by: m.given_by ?? null,
-          ordered_by: m.ordered_by ?? null,
-          results: m.results ?? null,
-        };
-      })
+      medications.map((m) => ({
+        chart_id: chartId,
+        medication_name: m.medication_name,
+        dose: m.dose ?? null,
+        unit: m.unit ?? null,
+        route: m.route ?? null,
+        // NOT NULL in the DB with a default of false, so unanswered means 0.
+        is_infusion: m.is_infusion ? 1 : 0,
+        infusion_rate: m.infusion_rate ?? null,
+        infusion_rate_unit: m.infusion_rate_unit ?? null,
+        infusion_stopped_at: m.infusion_stopped_at ?? null,
+        given_at: m.given_at,
+        given_by: m.given_by ?? null,
+        ordered_by: m.ordered_by ?? null,
+        results: m.results ?? null,
+        complications: m.complications ?? null,
+      }))
     )
     .execute();
 }
 
-// Signature attachments are not written yet. Refusing is safer than saving a
-// consent form that silently lost its signature.
+// The witness name and time are saved. Signature attachments (the patient's
+// and the witness's) are not built yet, so a form that carries a signature file
+// is refused instead of being saved without it.
 export async function writeConsentForms(
   db: Kysely<Database>,
   chartId: number,
@@ -161,6 +169,11 @@ export async function writeConsentForms(
             "writeConsentForms: saving signature attachments is not supported yet"
           );
         }
+        if (f.witness_signature_key !== undefined) {
+          throw new Error(
+            "writeConsentForms: saving the witness signature attachment is not supported yet"
+          );
+        }
         return {
           chart_id: chartId,
           form_type: f.form_type,
@@ -169,8 +182,32 @@ export async function writeConsentForms(
           signed_at: f.signed_at,
           signature_attachment_id: null,
           text_version: f.text_version,
+          witness_name: f.witness_name ?? null,
+          witness_signed_at: f.witness_signed_at ?? null,
+          witness_signature_attachment_id: null,
         };
       })
+    )
+    .execute();
+}
+
+// Every crew member is a system user. chart_crew points at charts (since
+// 0005), so a clinic chart's provider can be saved too.
+export async function writeCrew(
+  db: Kysely<Database>,
+  chartId: number,
+  crew: CrewMember[]
+): Promise<void> {
+  if (crew.length === 0) return;
+  await db
+    .insertInto("chart_crew")
+    .values(
+      crew.map((c) => ({
+        chart_id: chartId,
+        user_id: c.user_id,
+        name: null,
+        role_on_call: c.role_on_call ?? null,
+      }))
     )
     .execute();
 }
@@ -256,15 +293,16 @@ export async function writeChartPatientInfo(
       weight: patientInfo.weight ?? null,
       classification: patientInfo.classification ?? null,
       braslow_color: patientInfo.braslow_color ?? null,
-      estimated_age: patientInfo.estimated_age ?? null,
       // SET column: stored as comma-separated text
       history_given_by: patientInfo.history_given_by?.join(",") ?? null,
       history_of_present_illness: patientInfo.history_of_present_illness,
       medication_allergies: patientInfo.medication_allergies ?? null,
-      environmental_allergies: patientInfo.environmental_allergies ?? null,
       immunizations: patientInfo.immunizations ?? null,
       past_medical_history: patientInfo.past_medical_history ?? null,
       regular_medicines: patientInfo.regular_medicines ?? null,
+      alcohol_use: patientInfo.alcohol_use ?? null,
+      drug_use: patientInfo.drug_use ?? null,
+      invasive_airway_indications: patientInfo.invasive_airway_indications ?? null,
     })
     .execute();
 }
@@ -279,8 +317,29 @@ export async function writeTransport(
     .values({
       chart_id: chartId,
       destination: transport.destination ?? null,
+      in_transport_at: transport.in_transport_at ?? null,
       arrive_destination_at: transport.arrive_destination_at ?? null,
       transfer_of_care_at: transport.transfer_of_care_at ?? null,
+      transferred_to_doctor: transport.transferred_to_doctor ?? null,
+    })
+    .execute();
+}
+
+export async function writeVehicleAccident(
+  db: Kysely<Database>,
+  chartId: number,
+  accident: VehicleAccident
+): Promise<void> {
+  await db
+    .insertInto("vehicle_accident")
+    .values({
+      chart_id: chartId,
+      type: accident.type ?? null,
+      // SET columns: stored as comma-separated text
+      impact: accident.impact?.join(",") ?? null,
+      estimated_speed: accident.estimated_speed ?? null,
+      safety_equipment: accident.safety_equipment?.join(",") ?? null,
+      ejection: boolToDb(accident.ejection),
     })
     .execute();
 }
@@ -349,7 +408,6 @@ export async function writeAssessment(
       chart_id: chartId,
       pulse_strength: assessment.pulse_strength ?? null,
       pulse_rate: assessment.pulse_rate ?? null,
-      // NOT NULL with a default of 0, so leaving it out uses the default.
       burn_calculation: assessment.burn_calculation,
       stroke_time: assessment.stroke_time ?? null,
       stroke_facial_droop: boolToDb(assessment.stroke_facial_droop),

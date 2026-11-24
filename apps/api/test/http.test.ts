@@ -26,6 +26,7 @@ const aidan: Patient = {
   first_name: "Aidan",
   last_name: "Madonna",
   birth_date: new Date("1985-08-20T12:00:00.000Z"),
+  estimated_age: null,
   gender: "M",
 };
 const izzy: Patient = {
@@ -33,6 +34,7 @@ const izzy: Patient = {
   first_name: "Izzy",
   last_name: "Sullivan",
   birth_date: null,
+  estimated_age: 38,
   gender: "F",
 };
 

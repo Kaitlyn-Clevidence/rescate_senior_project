@@ -8,7 +8,7 @@ Browser (React + Vite)  →  Fastify routes  →  Repositories (Kysely)  →  My
 
 ## Current Status
 
-- **Database:** MySQL 8.4 in Docker. `0001_init.sql` creates `patients` and `charts`, and a seed file adds 4 patients and a few charts.
+- **Database:** MySQL 8.4 in Docker. The SQL files in `apps/api/migrations/` create all the tables (patients, charts, and the chart sections, notes, attachments, audit log and more), and the seed files in `apps/api/seeds/` add sample data (today: 4 patients and 16 charts). Setup runs every migration and then every seed file, in order (see step 4 below).
 - **API (`apps/api`):** Fastify with Kysely for queries.
   - `GET /charts` and `GET /charts/:id`
   - `GET /patients/:id`
@@ -52,18 +52,34 @@ Requires Docker Desktop (running) and Node 24 or newer.
    docker compose up -d
    docker compose ps
    ```
-4. Create the tables and load sample data:
+4. Create the tables and load sample data. This runs **every migration** in `apps/api/migrations/` in number order, then **every seed file** in `apps/api/seeds/` in number order. Use the loops below instead of naming files one by one, so a new migration or seed file is picked up without changing this README:
    ```bash
-   docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate' < apps/api/migrations/0001_init.sql
+   for f in apps/api/migrations/*.sql; do
+     docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate' < "$f" || break
+   done
    ```
    ```bash
-   docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate' < apps/api/seeds/001_prototype_seed.sql
+   for f in apps/api/seeds/*.sql; do
+     docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate' < "$f" || break
+   done
    ```
    **Windows PowerShell:** 
    ```powershell
-   Get-Content -Raw .\apps\api\migrations\0001_init.sql | docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate'
-   Get-Content -Raw .\apps\api\seeds\001_prototype_seed.sql | docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate'
+   Get-ChildItem .\apps\api\migrations\*.sql | Sort-Object Name | ForEach-Object {
+     Get-Content -Raw $_.FullName | docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate'
+   }
+   Get-ChildItem .\apps\api\seeds\*.sql | Sort-Object Name | ForEach-Object {
+     Get-Content -Raw $_.FullName | docker compose exec -T db sh -c 'mysql -uroot -p"$MYSQL_ROOT_PASSWORD" rescate'
+   }
    ```
+
+   **Important:** this is for a **new, empty database**. The migrations add and drop columns, so running them again on a database that already has the tables fails with errors like `Duplicate column name`. To start over cleanly, wipe the data first (`docker compose down -v`, then `docker compose up -d`, wait for `healthy`) and repeat this step. If you already have a database and a new migration arrives, run only that one file, or wipe and redo this step.
+
+   The files are run in file-name order, so migration names must keep the zero-padded number (`0001_`, `0002_`, ...). Numbers can have gaps (for example `0004` lives on another branch until it is merged); the loop runs whatever is in the folder.
+
+   **Seed files work the same way.** Every `.sql` file in `apps/api/seeds/` runs in file-name order (`001_`, `002_`, ...), after all the migrations, so adding a seed file needs no change here. Keep the zero-padded number. Two rules for seed files:
+   - Each file should stand on its own. The current `001_prototype_seed.sql` starts by emptying `charts` and `patients`, so a later file must not empty those tables again or it would erase what an earlier file loaded.
+   - Unlike migrations, seed files are safe to run again on an existing database as long as they empty the tables they fill. If a seed file fails, the loop stops there and the files after it do not run.
 
 **Every time (two terminals)**
 
@@ -126,7 +142,8 @@ Imports of files must end in `.js` (for example `./http/app.js`), even though th
 |---|---|
 | API exits naming a missing env variable | Check that `.env` exists in the repo root and has every value from `.env.example` |
 | `ECONNREFUSED ::1` | Set `DB_HOST=127.0.0.1` in `.env` |
-| `/charts` says "Unknown column" | Tables are missing or old. Run `docker compose down -v`, start again, and redo step 4 |
+| `/charts` says "Unknown column" | Tables are missing or old (a migration did not run). Run `docker compose down -v`, start again, and redo step 4 |
+| Step 4 prints `Duplicate column name` or `Can't DROP` | The migrations were already applied to this database. Wipe it (`docker compose down -v`, then `docker compose up -d`) and redo step 4 |
 | Web page doesn't match the API | Clear the `rescate:last-record` key in the browser's Local Storage (the app caches results) |
 | `.env` changed after the first start | The password inside the database won't update. Wipe with `docker compose down -v` first |
 

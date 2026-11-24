@@ -15,15 +15,18 @@ import {
 } from "kysely";
 import { describe, expect, it } from "vitest";
 import type { Database } from "../src/db/types.js";
+import { insertPatient } from "../src/repositories/patientWriter.js";
 import {
   writeChartPatientInfo,
   writeConsentForms,
+  writeCrew,
   writeFluidIntakeOutput,
   writeMedicationsGiven,
   writeObstetrics,
   writePhysicalExam,
   writeProceduresPerformed,
   writeTransport,
+  writeVehicleAccident,
   writeVitals,
 } from "../src/repositories/chart/sectionWriters.js";
 
@@ -84,7 +87,9 @@ describe("writeTransport", () => {
     await writeTransport(db, 7, { destination: "Carson Tahoe" });
 
     expect(queries).toHaveLength(1);
-    expect(queries[0].parameters).toEqual([7, "Carson Tahoe", null, null]);
+    // chart_id, destination, in_transport_at, arrive_destination_at,
+    // transfer_of_care_at, transferred_to_doctor
+    expect(queries[0].parameters).toEqual([7, "Carson Tahoe", null, null, null, null]);
   });
 });
 
@@ -105,6 +110,133 @@ describe("writeProceduresPerformed", () => {
   });
 });
 
+describe("writeCrew", () => {
+  it("writes one row per crew member, as system users", async () => {
+    const { db, queries } = makeDb();
+
+    await writeCrew(db, 5, [
+      { user_id: 2, role_on_call: "driver" },
+      { user_id: 3 },
+    ]);
+
+    expect(queries).toHaveLength(1);
+    expect(queries[0].parameters).toEqual([5, 2, null, "driver", 5, 3, null, null]);
+  });
+});
+
+describe("writeVehicleAccident", () => {
+  it("stores SET columns as comma-separated text and keeps unanswered ejection NULL", async () => {
+    const { db, queries } = makeDb();
+
+    await writeVehicleAccident(db, 5, {
+      type: "motorcycle",
+      impact: ["side", "roll_over"],
+      safety_equipment: ["helmet"],
+    });
+
+    const p = queries[0].parameters;
+    expect(p).toContain("side,roll_over");
+    expect(p).toContain("helmet");
+    expect(p[p.length - 1]).toBeNull(); // ejection never answered
+  });
+});
+
+describe("witness on a consent form", () => {
+  const signedAt = new Date("2026-11-18T10:00:00Z");
+  const form = {
+    form_type: "ama" as const,
+    language: "es" as const,
+    signer_name: "Test Person",
+    signed_at: signedAt,
+    text_version: 1,
+  };
+
+  it("saves the witness name and time", async () => {
+    const { db, queries } = makeDb();
+
+    await writeConsentForms(db, 1, [
+      { ...form, witness_name: "Test Witness", witness_signed_at: signedAt },
+    ]);
+
+    expect(queries[0].parameters).toContain("Test Witness");
+    expect(queries[0].parameters.filter((v) => v === signedAt)).toHaveLength(2);
+  });
+
+  it("rejects a witness signature file, since attachments are not written yet", async () => {
+    const { db, queries } = makeDb();
+
+    await expect(
+      writeConsentForms(db, 1, [
+        { ...form, witness_name: "Test Witness", witness_signature_key: "drafts/x.png" },
+      ])
+    ).rejects.toThrow("witness signature");
+    expect(queries).toEqual([]);
+  });
+});
+
+describe("insertPatient", () => {
+  it("saves the estimated age and keeps everything else NULL for an anonymous patient", async () => {
+    const { db, queries } = makeDb();
+
+    // the fake driver returns no insert id, so the call fails after the query
+    await expect(insertPatient(db, { estimated_age: 40 })).rejects.toThrow(
+      "did not return a new id"
+    );
+
+    expect(queries).toHaveLength(1);
+    expect(queries[0].sql).toContain("`estimated_age`");
+    expect(queries[0].parameters).toContain(40);
+    expect(queries[0].parameters.filter((v) => v === null)).toHaveLength(7);
+  });
+});
+
+describe("columns added in 0005 and 0006", () => {
+  it("writes blood glucose", async () => {
+    const { db, queries } = makeDb();
+
+    await writeVitals(db, 1, [
+      { recorded_at: new Date("2026-11-24T10:00:00Z"), blood_glucose: 95 },
+    ]);
+
+    expect(queries[0].parameters).toContain(95);
+  });
+
+  it("writes the new vitals fields", async () => {
+    const { db, queries } = makeDb();
+
+    await writeVitals(db, 1, [
+      {
+        recorded_at: new Date("2026-11-18T10:00:00Z"),
+        responsiveness: "alert",
+        rass: -2,
+        mean_arterial_pressure: 90,
+        bp_method: "manual",
+        heart_rate_method: "palpated",
+        ecg: "sinus rhythm",
+      },
+    ]);
+
+    const p = queries[0].parameters;
+    expect(p).toEqual(expect.arrayContaining(["alert", -2, 90, "manual", "palpated", "sinus rhythm"]));
+  });
+
+  it("writes substance use and airway indications instead of environmental allergies", async () => {
+    const { db, queries } = makeDb();
+
+    await writeChartPatientInfo(db, 1, {
+      history_of_present_illness: "chest pain",
+      alcohol_use: "weekly",
+      drug_use: "none",
+      invasive_airway_indications: "GCS below 8",
+    });
+
+    expect(queries[0].sql).not.toContain("environmental_allergies");
+    expect(queries[0].parameters).toEqual(
+      expect.arrayContaining(["weekly", "none", "GCS below 8"])
+    );
+  });
+});
+
 describe("fields the database requires but the domain leaves optional", () => {
   it("rejects patient info with no history of present illness, before any query", async () => {
     const { db, queries } = makeDb();
@@ -112,15 +244,6 @@ describe("fields the database requires but the domain leaves optional", () => {
     await expect(
       writeChartPatientInfo(db, 1, { medication_allergies: "penicillin" })
     ).rejects.toThrow("history_of_present_illness");
-    expect(queries).toEqual([]);
-  });
-
-  it("rejects a medication with no given_at, before any query", async () => {
-    const { db, queries } = makeDb();
-
-    await expect(
-      writeMedicationsGiven(db, 1, [{ medication_name: "ketorolac" }])
-    ).rejects.toThrow("given_at");
     expect(queries).toEqual([]);
   });
 

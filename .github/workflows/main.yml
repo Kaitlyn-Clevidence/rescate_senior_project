@@ -69,13 +69,20 @@ jobs:
       - name: Lint
         run: npm run lint
       
+      # Runs EVERY migration in file-name order (0001_, 0002_, ...), then the
+      # seed, so CI always tests the current schema. A new migration file is
+      # picked up without editing this workflow. The database is brand new on
+      # every CI run, so the migrations never run twice.
       - name: Create tables and load seed data
         working-directory: .
         env:
           MYSQL_PWD: ci_password
         run: |
           sudo apt-get install -y mysql-client
-          mysql -h 127.0.0.1 -uroot rescate < apps/api/migrations/0001_init.sql
+          for f in apps/api/migrations/*.sql; do
+            echo "Applying $f"
+            mysql -h 127.0.0.1 -uroot rescate < "$f"
+          done
           mysql -h 127.0.0.1 -uroot rescate < apps/api/seeds/001_prototype_seed.sql
 
       # RUN_DB_TESTS=1 runs the tests that talk to the real database

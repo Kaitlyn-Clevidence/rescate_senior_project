@@ -14,6 +14,15 @@ export function insertedId(result: InsertResult): number {
   return Number(result.insertId);
 }
 
+// True when MySQL rejected an insert because a UNIQUE key already has that
+// value (error 1062). Lets a repository turn "already exists" into a clean
+// answer instead of a crash.
+export function isDuplicateKeyError(error: unknown): boolean {
+  if (typeof error !== "object" || error === null) return false;
+  const { errno, code } = error as { errno?: unknown; code?: unknown };
+  return errno === 1062 || code === "ER_DUP_ENTRY";
+}
+
 // Nullable BOOLEAN columns: "not answered" must stay NULL, not become 0 (no).
 export function boolToDb(value: boolean | undefined): 0 | 1 | null {
   if (value === undefined) return null;

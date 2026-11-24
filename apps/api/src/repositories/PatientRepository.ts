@@ -1,8 +1,9 @@
 // Author(s): Kaitlyn Clevidence & Sophia Koshy
 // Start date: 2026-11-07
-// Last updated: 2026-11-07
-// P4: Prototype 
-// Purpose: data layer repository for patient table;
+// Last updated: 2026-11-24
+// P5: MVP
+// Purpose: data layer repository for patient table. Reads return only the
+// public columns, never phone, email or home address.
 
 import { sql, type Kysely } from "kysely";
 import type { Database } from "../db/types.js";
@@ -10,17 +11,22 @@ import type { NewPatient } from "../domain/Chart.js";
 import { insertPatient } from "./patientWriter.js";
 
 const PATIENT_COLUMNS = [
-  "patient_id", "first_name", "last_name", "birth_date", "gender",
-] as const; 
+  "patient_id", "first_name", "last_name", "birth_date", "estimated_age", "gender",
+] as const;
 
+// Names and gender can be NULL (unconscious patients, children). Every chart
+// needs a birth date or an estimated age, but that is checked in the service.
 export interface Patient {
   patient_id: number;
-  first_name: string;
-  last_name: string;
+  first_name: string | null;
+  last_name: string | null;
   birth_date: Date | null;
-  gender: string;
+  estimated_age: number | null;
+  gender: string | null;
 }
 
+// Both names are needed to search, so an anonymous patient (no name) is never
+// returned by findCandidates; the form should create a new patient for them.
 export interface PatientSearch {
   first_name: string;
   last_name: string;

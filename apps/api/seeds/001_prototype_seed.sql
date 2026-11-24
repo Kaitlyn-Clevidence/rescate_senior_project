@@ -1,6 +1,6 @@
 -- Author(s): Kaitlyn Clevidence
 -- Start date: 2026-11-04
--- Last updated: 2026-11-07
+-- Last updated: 2026-11-18
 -- P4: Prototype 
 -- Purpose: seeds sample data into the api database for the prototype demo;
 
@@ -25,20 +25,20 @@ INSERT INTO patients (first_name, last_name, phone,
 "1995-11-10", "F");
 
 INSERT INTO charts (patient_id, nature_of_call, call_type, encounter_date, 
-    is_completed, is_practice, form_version) VALUES
-(4, "B/P check", "clinic", "2024-01-15 10:00:00", TRUE, FALSE, 2),
-(3, "Vehicle Accident", "ambulance", "2024-02-20 14:30:00", TRUE, FALSE, 2),
-(2, "Injection", "clinic", "2024-03-05 09:15:00", FALSE, TRUE, 2),
-(1, "Cardiac", "clinic", "2024-04-10 11:45:00", TRUE, FALSE, 2),
-(4, "Trauma", "clinic", "2024-01-15 10:00:00", TRUE, FALSE, 2),
-(3, "Injection", "ambulance", "2024-02-20 14:30:00", TRUE, FALSE, 2),
-(2, "Vehicle Accident", "clinic", "2024-03-05 09:15:00", FALSE, TRUE, 2),
-(1, "Trauma", "clinic", "2024-04-10 11:45:00", TRUE, FALSE, 2),
-(4, "Cardiac", "clinic", "2024-01-15 10:00:00", TRUE, FALSE, 2),
-(3, "B/P check", "ambulance", "2024-02-20 14:30:00", TRUE, FALSE, 2),
-(2, "Vehicle Accident", "clinic", "2024-03-05 09:15:00", FALSE, TRUE, 2),
-(1, "Trauma", "clinic", "2024-04-10 11:45:00", TRUE, FALSE, 2),
-(4, "B/P check", "clinic", "2024-01-15 10:00:00", TRUE, FALSE, 2),
-(3, "Cardiac", "ambulance", "2024-02-20 14:30:00", TRUE, FALSE, 2),
-(2, "Injection", "clinic", "2024-03-05 09:15:00", FALSE, TRUE, 2),
-(1, "Trauma", "clinic", "2024-04-10 11:45:00", TRUE, FALSE, 2);
+    is_completed, form_version) VALUES
+(4, "B/P check", "clinic", "2024-01-15 10:00:00", TRUE, 2),
+(3, "Vehicle Accident", "ambulance", "2024-02-20 14:30:00", TRUE, 2),
+(2, "Injection", "clinic", "2024-03-05 09:15:00", FALSE, 2),
+(1, "Cardiac", "clinic", "2024-04-10 11:45:00", TRUE, 2),
+(4, "Trauma", "clinic", "2024-01-15 10:00:00", TRUE, 2),
+(3, "Injection", "ambulance", "2024-02-20 14:30:00", TRUE, 2),
+(2, "Vehicle Accident", "clinic", "2024-03-05 09:15:00", FALSE, 2),
+(1, "Trauma", "clinic", "2024-04-10 11:45:00", TRUE, 2),
+(4, "Cardiac", "clinic", "2024-01-15 10:00:00", TRUE, 2),
+(3, "B/P check", "ambulance", "2024-02-20 14:30:00", TRUE, 2),
+(2, "Vehicle Accident", "clinic", "2024-03-05 09:15:00", FALSE, 2),
+(1, "Trauma", "clinic", "2024-04-10 11:45:00", TRUE, 2),
+(4, "B/P check", "clinic", "2024-01-15 10:00:00", TRUE, 2),
+(3, "Cardiac", "ambulance", "2024-02-20 14:30:00", TRUE, 2),
+(2, "Injection", "clinic", "2024-03-05 09:15:00", FALSE, 2),
+(1, "Trauma", "clinic", "2024-04-10 11:45:00", TRUE, 2);

@@ -15,7 +15,7 @@ import {
 } from "kysely";
 import { describe, expect, it } from "vitest";
 import type { Database } from "../src/db/types.js";
-import type { NewAmbulanceChart, NewClinicChart } from "../src/domain/Chart.js";
+import type { NewClinicChart } from "../src/domain/Chart.js";
 import { createChartRepository } from "../src/repositories/ChartRepository.js";
 
 function makeDb() {
@@ -38,36 +38,64 @@ const clinicChart: NewClinicChart = {
   call_type: "clinic",
   nature_of_call: "bp_check",
   encounter_date: new Date("2026-11-16T10:00:00Z"),
+  created_by: 1,
+  narrative: "Patient came in for a blood pressure check.",
   patient: { patient_id: 1 },
   clinic: {},
   sections: {},
 };
 
 describe("ChartRepository.insertSubmitted guards", () => {
-  it("rejects ambulance charts without touching the database", async () => {
-    const { db, queries } = makeDb();
-    const ambulanceChart: NewAmbulanceChart = {
-      ...clinicChart,
-      call_type: "ambulance",
-      ambulance: { call_category: "scene" },
-    } as NewAmbulanceChart;
-
-    await expect(
-      createChartRepository(db).insertSubmitted(ambulanceChart)
-    ).rejects.toThrow("ambulance charts are not supported yet");
-    expect(queries).toEqual([]);
-  });
-
-  it("rejects a section it cannot write yet instead of dropping it", async () => {
+  it("rejects a vehicle accident on a clinic chart, before any query", async () => {
     const { db, queries } = makeDb();
     const chart: NewClinicChart = {
       ...clinicChart,
-      sections: { wound_care: { wound_location: "left hand" } },
+      sections: { vehicle_accident: { type: "motorcycle" } },
     };
 
     await expect(
       createChartRepository(db).insertSubmitted(chart)
-    ).rejects.toThrow('no writer for section "wound_care"');
+    ).rejects.toThrow('section "vehicle_accident" is not allowed on a clinic chart');
+    expect(queries).toEqual([]);
+  });
+
+  it("rejects a section name it does not know instead of dropping it", async () => {
+    const { db, queries } = makeDb();
+    const chart = {
+      ...clinicChart,
+      sections: { vitalz: [{ recorded_at: new Date() }] },
+    } as unknown as NewClinicChart;
+
+    await expect(
+      createChartRepository(db).insertSubmitted(chart)
+    ).rejects.toThrow('section "vitalz" is not allowed');
+    expect(queries).toEqual([]);
+  });
+
+  it.each([
+    ["a patient signature file", { signature_key: "drafts/a.png" }],
+    ["a witness signature file", { witness_signature_key: "drafts/w.png" }],
+  ])("rejects %s, since signatures are not saved yet, before any query", async (_name, extra) => {
+    const { db, queries } = makeDb();
+    const chart: NewClinicChart = {
+      ...clinicChart,
+      sections: {
+        consent_forms: [
+          {
+            form_type: "consent",
+            language: "es",
+            signer_name: "Test Person",
+            signed_at: new Date("2026-11-16T10:00:00Z"),
+            text_version: 1,
+            ...extra,
+          },
+        ],
+      },
+    };
+
+    await expect(
+      createChartRepository(db).insertSubmitted(chart)
+    ).rejects.toThrow("signature files is not supported yet");
     expect(queries).toEqual([]);
   });
 

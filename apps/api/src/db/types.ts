@@ -1,6 +1,8 @@
 //  Author(s): Kaitlyn Clevidence, Isabel Sullivan
 //  P5: MVP
-//  Purpose: Kysely types for every table in migrations 0001-0004.
+//  Purpose: Kysely types for every table in migrations 0001-0003, 0005 and the
+//  draft 0006. user_tokens is from 0004, which is on the 12-user-registration
+//  branch and not merged here yet.
 //  Conventions (mysql2 defaults):
 //   - BOOLEAN columns arrive as 0/1
 //   - DECIMAL columns arrive as strings (see NullableDecimal below)
@@ -20,17 +22,22 @@ type GeneratedDecimal = ColumnType<string, number | string | undefined, number |
 export type CallType = "clinic" | "ambulance";
 export type Role = "admin" | "provider" | "board" | "trainee";
 export type Language = "en" | "es";
+export type IncidentLocationType =
+  | "home" | "street_highway" | "public_place" | "workplace" | "school"
+  | "healthcare_facility" | "recreation" | "other";
+export type Responsiveness = "alert" | "verbal" | "pain" | "unresponsive"; // AVPU
 
 // ---- 0001 ----
 export interface PatientsTable {
   patient_id: Generated<number>;
-  first_name: string;
-  last_name: string;
+  first_name: string | null;
+  last_name: string | null;
   phone: string | null;
   email: string | null;
   home_address: string | null;
   birth_date: Date | null;
-  gender: string; // CHAR(1)
+  gender: string | null;
+  estimated_age: number | null; // added in 0006 (draft)
 }
 
 export interface ChartsTable {
@@ -45,11 +52,11 @@ export interface ChartsTable {
   call_type: CallType;
   encounter_date: Date;
   is_completed: Generated<number>;
-  is_practice: Generated<number>;
   form_version: Generated<number>;
   needs_review: Generated<number>;
   created_at: Generated<Date>;
   submitted_at: Date | null;
+  narrative: string | null; // added in 0005 (is_practice was dropped there)
 }
 
 // ---- 0002 ----
@@ -69,6 +76,7 @@ export interface UsersTable {
 export interface AmbulanceCallsTable {
   chart_id: number;
   incident_location: string | null; // added in 0003
+  incident_location_type: IncidentLocationType | null; // added in 0005
   incident_address: string | null;  // added in 0003
   call_category: "scene" | "transfer";
   mass_casualty_incident: Generated<number>;
@@ -108,6 +116,14 @@ export interface VitalsTable {
   gcs_verbal: number | null;
   temperature: NullableDecimal;
   pain: number | null;
+  // added in 0005
+  responsiveness: Responsiveness | null;
+  rass: number | null; // -5 to +4
+  mean_arterial_pressure: number | null;
+  bp_method: string | null;
+  heart_rate_method: string | null;
+  ecg: string | null;
+  blood_glucose: number | null; // mg/dL; added in 0006 (draft)
 }
 
 export interface NotesTable {
@@ -115,6 +131,7 @@ export interface NotesTable {
   chart_id: number;
   user_id: number | null;
   note: string;
+  reason: string; // added in 0005: why the addendum was added
   date_added: Generated<Date>;
 }
 
@@ -158,21 +175,25 @@ export interface ChartPatientInfoTable {
     | "Gray" | "Pink" | "Red" | "Yellow" | "Purple"
     | "White" | "Blue" | "Orange" | "Green"
     | null;
-  estimated_age: number | null;
   history_given_by: string | null; // SET('patient','family','other')
   history_of_present_illness: string;
   medication_allergies: string | null;
-  environmental_allergies: string | null;
   immunizations: string | null;
   past_medical_history: string | null;
   regular_medicines: string | null;
+  // added in 0005 (environmental_allergies was dropped)
+  alcohol_use: string | null;
+  drug_use: string | null;
+  invasive_airway_indications: string | null;
 }
 
 export interface TransportsTable {
   chart_id: number;
   destination: string | null;
+  in_transport_at: Date | null; // added in 0005
   arrive_destination_at: Date | null;
   transfer_of_care_at: Date | null;
+  transferred_to_doctor: string | null; // added in 0005
 }
 
 export interface VehicleAccidentTable {
@@ -196,11 +217,15 @@ export interface ChartFormsTable {
   signed_at: Date;
   signature_attachment_id: number | null;
   text_version: number;
+  // added in 0005: the witness signs the same form
+  witness_name: string | null;
+  witness_signed_at: Date | null;
+  witness_signature_attachment_id: number | null;
 }
 
 export interface ChartCrewTable {
   crew_member_id: Generated<number>;
-  chart_id: number; // references ambulance_calls.chart_id
+  chart_id: number; // references charts.chart_id (changed from ambulance_calls in 0005)
   user_id: number | null;
   name: string | null;
   role_on_call: string | null;
@@ -226,10 +251,15 @@ export interface MedicationsGivenTable {
   dose: NullableDecimal;
   unit: string | null;
   route: string | null;
+  is_infusion: Generated<number>; // added in 0005
+  infusion_rate: NullableDecimal;
+  infusion_rate_unit: string | null;
+  infusion_stopped_at: Date | null;
   given_at: Date;
   given_by: number | null;
   ordered_by: string | null;
   results: string | null;
+  complications: string | null; // added in 0005
 }
 
 export interface ProceduresPerformedTable {
@@ -289,23 +319,40 @@ export interface ChartsV1ArchiveTable {
   archived_at: Generated<Date>;
 }
 
-// ---- 0004 (proposed) ----
-export interface PasswordTokensTable {
+// ---- 0005 ----
+// Searchable procedure list. New procedures are added as rows.
+export interface ProcedureCatalogTable {
+  procedure_code: string;
+  name_en: string;
+  name_es: string;
+  is_active: Generated<number>;
+}
+
+// ---- 0004 (on the 12-user-registration branch, not merged here yet) ----
+// Single-use setup/reset links. That migration also adds users.password_set_at
+// (the quarterly password change), invited_by, created_at and last_login_at,
+// and makes username, password_hash and name nullable; UsersTable above does
+// not have those yet. Rename or drop this type if the branch changes it.
+export interface UserTokensTable {
   token_id: Generated<number>;
   user_id: number;
-  token_hash: string; // SHA-256 hex, never the raw token
+  token_hash: string; // SHA-256 hex (CHAR(64)), never the raw token
   purpose: "setup" | "reset";
   expires_at: Date;
   used_at: Date | null;
   created_at: Generated<Date>;
 }
 
+// ---- 0006 (draft) ----
+// Append-only. The app's DB user should only be able to INSERT and SELECT.
 export interface AuditLogTable {
   audit_id: Generated<number>;
-  user_id: number | null;
+  user_id: number | null; // NULL when nobody is logged in (failed login)
   action: string;
   entity: string | null;
   entity_id: string | null;
+  ip_address: string | null;
+  user_agent: string | null;
   details: unknown | null; // JSON; never put PHI here
   created_at: Generated<Date>;
 }
@@ -333,6 +380,7 @@ export interface Database {
   assessments: AssessmentsTable;
   trauma_causes: TraumaCausesTable;
   charts_v1_archive: ChartsV1ArchiveTable;
-  password_tokens: PasswordTokensTable;
+  procedure_catalog: ProcedureCatalogTable;
+  user_tokens: UserTokensTable;
   audit_log: AuditLogTable;
 }
