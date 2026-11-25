@@ -4,6 +4,182 @@
  /* P4: Prototype */
  /* Purpose: Create a responsive layout for the application */
 
+.app-shell {
+  min-height: 100vh;
+}
+
+.topbar {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 5rem;
+  padding: 0 clamp(1rem, 3vw, 2rem);
+  color: var(--color-text);
+  background: var(--color-tint);
+}
+
+.navigation-menu,
+.account-menu {
+  position: relative;
+}
+
+.menu-trigger,
+.account-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  min-height: 2.75rem;
+  border: 0;
+  padding: 0.5rem;
+  color: var(--color-text);
+  background: transparent;
+}
+
+.menu-trigger:hover:not(:disabled),
+.account-trigger:hover:not(:disabled) {
+  color: var(--color-primary);
+  background: var(--color-surface);
+}
+
+.menu-trigger svg,
+.account-trigger svg {
+  width: 1.75rem;
+  height: 1.75rem;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.brand-mark {
+  display: grid;
+  width: 2.75rem;
+  height: 2.75rem;
+  place-items: center;
+  border: 2px solid var(--color-primary);
+  border-radius: 50%;
+  color: var(--color-primary);
+  font-weight: 800;
+}
+
+.brand-name {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.topbar-spacer {
+  flex: 1;
+}
+
+.account-trigger {
+  border-radius: 0.5rem;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 0.5rem);
+  left: 0;
+  display: grid;
+  width: 11rem;
+  gap: 0.15rem;
+  border: 1px solid var(--color-focus);
+  border-radius: 1rem;
+  padding: 0.45rem;
+  background: var(--color-surface);
+  box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 12%);
+}
+
+.dropdown-menu[data-state="open"] {
+  animation: dropdown-fade-in 200ms ease-out both;
+}
+
+.dropdown-menu[data-state="closing"] {
+  animation: dropdown-fade-out 100ms ease-in both;
+  pointer-events: none;
+}
+
+@keyframes dropdown-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes dropdown-fade-out {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(-0.25rem);
+  }
+}
+
+.account-dropdown {
+  right: 0;
+  left: auto;
+}
+
+.dropdown-user-name {
+  display: block;
+  width: 100%;
+  height: 2.5rem;
+  overflow: hidden;
+  border-bottom: 1px solid var(--color-border);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.5rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dropdown-link,
+.dropdown-placeholder {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 2.5rem;
+  min-height: 2.5rem;
+  overflow: hidden;
+  border: 0;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  color: var(--color-text);
+  background: transparent;
+  font: inherit;
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: left;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.dropdown-link:hover,
+.dropdown-link:focus-visible {
+  color: var(--color-primary);
+  background: var(--color-tint);
+}
+
+.dropdown-placeholder:disabled {
+  color: var(--color-text-subtle);
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
 .app {
   width: min(100% - 2rem, 760px);
   margin: 0 auto;
@@ -22,9 +198,11 @@
 }
 
 .language-button {
+  width: 4.5rem;
+  height: 2.75rem;
   border: 1px solid var(--color-border);
   border-radius: 999px;
-  padding: 0.4rem 0.75rem;
+  padding: 0 0.35rem;
   color: var(--color-text-muted);
   background: transparent;
   font-size: 0.85rem;
@@ -150,6 +328,23 @@ dd {
 }
 
 @media (max-width: 520px) {
+  .topbar {
+    gap: 0.6rem;
+    min-height: 4.25rem;
+    padding-inline: 0.75rem;
+  }
+
+  .brand-mark {
+    width: 2.25rem;
+    height: 2.25rem;
+  }
+
+  .brand-name {
+    overflow: hidden;
+    font-size: 0.85rem;
+    text-overflow: ellipsis;
+  }
+
   .app {
     width: min(100% - 1.25rem, 760px);
   }
@@ -160,8 +355,16 @@ dd {
   }
 
   .language-button {
+    width: 100%;
+    min-width: 0;
+    padding-inline: 0.15rem;
+  }
+
+  .language-toggle .theme-toggle {
     flex: 1;
-    min-height: 2.75rem;
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    margin-left: 0.25rem;
   }
 
   .intro {
@@ -210,6 +413,8 @@ dd {
 }
 
 .lookup button {
+  width: 15rem;
+  flex: 0 0 15rem;
   padding-block: 0;
   border: 0;
 }
@@ -230,6 +435,16 @@ dd {
   display: flex;
   gap: 0.25rem;
   margin-left: 0.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dropdown-menu[data-state="open"] {
+    animation-duration: 2ms;
+  }
+
+  .dropdown-menu[data-state="closing"] {
+    animation-duration: 1ms;
+  }
 }
 
 /* English / Spanish switch: one control, thumb slides to the active language */

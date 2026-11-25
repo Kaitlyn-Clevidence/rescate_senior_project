@@ -76,6 +76,33 @@ describe('initial page', () => {
   })
 })
 
+describe('navigation menus', () => {
+  it('links to existing sections and marks unfinished destinations unavailable', async () => {
+    const user = userEvent.setup()
+    render(<App />)
+
+    const navigationTrigger = screen.getByRole('button', { name: 'Open navigation menu' })
+    await user.click(navigationTrigger)
+
+    const navigation = screen.getByRole('navigation', { name: 'Open navigation menu' })
+    expect(navigation).toHaveAttribute('data-state', 'open')
+    expect(within(navigation).getByRole('link', { name: 'View Charts' })).toHaveAttribute('href', '#chart-results')
+    expect(within(navigation).getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '#preferences')
+    expect(within(navigation).getByRole('button', { name: 'New Chart' })).toBeDisabled()
+    expect(within(navigation).getByRole('button', { name: 'Insights' })).toBeDisabled()
+
+    await user.click(within(navigation).getByRole('link', { name: 'View Charts' }))
+    expect(navigationTrigger).toHaveAttribute('aria-expanded', 'false')
+    expect(navigation).toHaveAttribute('data-state', 'closing')
+    expect(navigation).toHaveAttribute('aria-hidden', 'true')
+
+    await user.click(screen.getByRole('button', { name: 'Open account menu' }))
+    expect(screen.getByText('User Name')).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Settings' })).toHaveAttribute('href', '#preferences')
+    expect(screen.getByRole('button', { name: 'Logout' })).toBeDisabled()
+  })
+})
+
 describe('searching by patient number', () => {
   beforeEach(() => {
     mockRoutes({

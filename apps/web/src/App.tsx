@@ -12,6 +12,7 @@ type Record_ = Record<string, unknown>
 type Language = 'en' | 'es'
 type Lookup = 'patients' | 'charts'
 type Theme = 'system' | 'light' | 'dark'
+type MenuState = 'closed' | 'open' | 'closing'
 
 const THEME_KEY = 'rescate:theme'
 
@@ -58,6 +59,15 @@ const copy = {
     notFound: 'No record found with that number',
     chartsHeading: 'Charts',
     noCharts: 'This patient has no charts yet.',
+    openNavigation: 'Open navigation menu',
+    openAccount: 'Open account menu',
+    newChart: 'New Chart',
+    viewCharts: 'View Charts',
+    insights: 'Insights',
+    settings: 'Settings',
+    userName: 'User Name',
+    logout: 'Logout',
+    unavailable: 'This page or action has not been implemented yet.',
   },
   es: {
     chart: 'Expediente del paciente',
@@ -82,6 +92,15 @@ const copy = {
     notFound: 'No se encontró ningún registro con ese número',
     chartsHeading: 'Expedientes',
     noCharts: 'Este paciente aún no tiene expedientes.',
+    openNavigation: 'Abrir menú de navegación',
+    openAccount: 'Abrir menú de cuenta',
+    newChart: 'Nuevo expediente',
+    viewCharts: 'Ver expedientes',
+    insights: 'Estadísticas',
+    settings: 'Configuración',
+    userName: 'Nombre de usuario',
+    logout: 'Cerrar sesión',
+    unavailable: 'Esta página o acción todavía no está disponible.',
   },
 } as const
 
@@ -188,6 +207,35 @@ function App() {
   )
   const text = copy[language]
   const [theme, setTheme] = useState<Theme>(readTheme)
+  const [navigationMenuState, setNavigationMenuState] = useState<MenuState>('closed')
+  const [accountMenuState, setAccountMenuState] = useState<MenuState>('closed')
+  const navigationRef = useRef<HTMLDivElement | null>(null)
+  const accountRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const closeMenus = (event: PointerEvent) => {
+      if (!(event.target instanceof Node)) return
+      if (!navigationRef.current?.contains(event.target)) {
+        setNavigationMenuState((state) => state === 'closed' ? state : 'closing')
+      }
+      if (!accountRef.current?.contains(event.target)) {
+        setAccountMenuState((state) => state === 'closed' ? state : 'closing')
+      }
+    }
+    const closeMenusOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setNavigationMenuState((state) => state === 'closed' ? state : 'closing')
+        setAccountMenuState((state) => state === 'closed' ? state : 'closing')
+      }
+    }
+
+    document.addEventListener('pointerdown', closeMenus)
+    document.addEventListener('keydown', closeMenusOnEscape)
+    return () => {
+      document.removeEventListener('pointerdown', closeMenus)
+      document.removeEventListener('keydown', closeMenusOnEscape)
+    }
+  }, [])
 
   useEffect(() => {
     const root = document.documentElement
@@ -299,8 +347,94 @@ function App() {
   }
 
   return (
-    <main className="app">
-      <nav className="language-toggle" aria-label="Language">
+    <div className="app-shell">
+      <header className="topbar">
+        <div className="navigation-menu" ref={navigationRef}>
+          <button
+            type="button"
+            className="menu-trigger"
+            aria-label={text.openNavigation}
+            aria-expanded={navigationMenuState === 'open'}
+            aria-controls="navigation-dropdown"
+            onClick={() => {
+              setNavigationMenuState((state) => state === 'open' ? 'closing' : 'open')
+              setAccountMenuState((state) => state === 'closed' ? state : 'closing')
+            }}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+          {navigationMenuState !== 'closed' && (
+            <nav
+              id="navigation-dropdown"
+              className="dropdown-menu"
+              aria-label={text.openNavigation}
+              aria-hidden={navigationMenuState === 'closing'}
+              data-state={navigationMenuState}
+              onAnimationEnd={() =>
+                setNavigationMenuState((state) => state === 'closing' ? 'closed' : state)
+              }
+            >
+              {/* TODO: Link to a chart-creation page when the new web app adds that route. */}
+              <button type="button" className="dropdown-placeholder" disabled title={text.unavailable}>
+                {text.newChart}
+              </button>
+              <a className="dropdown-link" href="#viewCharts" onClick={() => setNavigationMenuState('closing')}>
+                {text.viewCharts}
+              </a>
+              {/* TODO: Link to the insights page when the new web app adds that route. */}
+              <button type="button" className="dropdown-placeholder" disabled title={text.unavailable}>
+                {text.insights}
+              </button>
+            </nav>
+          )}
+        </div>
+        <span className="brand-mark" aria-hidden="true">R</span>
+        <span className="brand-name">Rescate de San Carlos</span>
+        <div className="topbar-spacer" />
+        <div className="account-menu" ref={accountRef}>
+          <button
+            type="button"
+            className="account-trigger"
+            aria-label={text.openAccount}
+            aria-expanded={accountMenuState === 'open'}
+            aria-controls="account-dropdown"
+            onClick={() => {
+              setAccountMenuState((state) => state === 'open' ? 'closing' : 'open')
+              setNavigationMenuState((state) => state === 'closed' ? state : 'closing')
+            }}
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="8" r="4" />
+              <path d="M4 21v-2a8 8 0 0 1 16 0v2z" />
+            </svg>
+          </button>
+          {accountMenuState !== 'closed' && (
+            <div
+              id="account-dropdown"
+              className="dropdown-menu account-dropdown"
+              aria-hidden={accountMenuState === 'closing'}
+              data-state={accountMenuState}
+              onAnimationEnd={() =>
+                setAccountMenuState((state) => state === 'closing' ? 'closed' : state)
+              }
+            >
+              {/* TODO: Replace the placeholder with the signed-in user's name when authentication exists. */}
+              <span className="dropdown-user-name">{text.userName}</span>
+              <a className="dropdown-link" href="#preferences" onClick={() => setAccountMenuState('closing')}>
+                {text.settings}
+              </a>
+              {/* TODO: Connect logout after authentication is implemented in the new web app. */}
+              <button type="button" className="dropdown-placeholder" disabled title={text.unavailable}>
+                {text.logout}
+              </button>
+            </div>
+          )}
+        </div>
+      </header>
+      <main className="app">
+      <nav id="preferences" className="language-toggle" aria-label="Language and theme settings">
         <button
           type="button"
           role="switch"
@@ -337,7 +471,7 @@ function App() {
         <p className="intro">{text.intro}</p>
       </header>
 
-      <form className="lookup" onSubmit={loadRecord}>
+      <form id="chart-lookup" className="lookup" onSubmit={loadRecord}>
         <label>
           {text.lookupBy}
           <select value={lookup} onChange={(e) => setLookup(e.target.value as Lookup)}>
@@ -360,6 +494,7 @@ function App() {
       </form>
 
       <section
+        id="chart-results"
         className="display"
         aria-busy={isLoading}
         aria-live="polite"
@@ -400,7 +535,8 @@ function App() {
         )}
         {isCached && <p className="cache-status" role="status">{text.saved}</p>}
       </section>
-    </main>
+      </main>
+    </div>
   )
 }
 
