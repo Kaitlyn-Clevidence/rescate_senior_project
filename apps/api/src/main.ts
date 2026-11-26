@@ -11,16 +11,25 @@ import { createPatientRepository } from "./repositories/PatientRepository.js";
 import { buildApp } from "./http/app.js";
 import { createAddendumRepository } from "./repositories/AddendumRepository.js";
 import { createAddendumService } from "./services/AddendumService.js";
+import { createAttachmentRepository } from "./repositories/AttachmentRepository.js";
+import { createAttachmentService } from "./services/AttachmentService.js";
+import { createLocalStorage } from "./services/StorageService.js";
 
 
 const db = createDb(config.db);
-const addenda = createAddendumService(createAddendumRepository(db));
+const addendumRepository = createAddendumRepository(db);
+const addenda = createAddendumService(addendumRepository);
+const attachments = createAttachmentService(
+  addendumRepository,
+  createAttachmentRepository(db),
+  createLocalStorage(config.attachmentsDir)
+);
 
 const app = buildApp({
   charts: createChartRepository(db),
   patients: createPatientRepository(db),
 },
-  { addenda }
+  { addenda, attachments }
 );
 try {
   await app.listen({ port: config.port, host: "127.0.0.1" });

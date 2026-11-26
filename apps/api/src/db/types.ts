@@ -1,10 +1,9 @@
 //  Author(s): Kaitlyn Clevidence, Isabel Sullivan
 //  Start date: 2024-11-07
-//  Last updated: 2026-11-11
+//  Last updated: 2026-11-24
 //  P4: Prototype 
 //  Purpose: define kysely types for the database tables; 
 //  used to type the database connection and queries; 
-//  currently only for prototype tables, ie. patients and charts
 
 import type { Generated } from "kysely";
 
@@ -48,8 +47,22 @@ export interface NotesTable {
   date_added: Generated<Date>;
 }
 
+export interface AttachmentsTable {
+  attachment_uuid: string;
+  attachment_id: Generated<number>;
+  storage_key: string;
+  chart_id: number;
+  file_type: string | null;
+  original_name: string | null;
+  size_bytes: number | null;
+  uploaded_by: number | null;
+  time_captured: Date | null;
+  uploaded_at: Generated<Date>;
+}
+
 export interface Database {
   patients: PatientsTable;
   charts: ChartsTable;
   notes: NotesTable;
+  attachments: AttachmentsTable;
 }

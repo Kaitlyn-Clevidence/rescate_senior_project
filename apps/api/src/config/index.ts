@@ -19,4 +19,5 @@ export const config = {
   },
   port: Number(process.env.API_PORT || 3000),
   corsOrigin: process.env.CORS_ORIGIN || 'http://localhost:5173',
+  attachmentsDir: process.env.ATTACHMENTS_DIR || 'attachments',
 };

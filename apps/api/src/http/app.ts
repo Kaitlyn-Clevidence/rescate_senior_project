@@ -10,6 +10,8 @@ import cors from "@fastify/cors";
 import type { ChartRepository } from "../repositories/ChartRepository.js";
 import type { PatientRepository } from "../repositories/PatientRepository.js";
 import type { AddendumService } from "../services/AddendumService.js"
+import type { AttachmentService } from "../services/AttachmentService.js";
+import { registerAttachmentRoutes } from "./routes/attachments.js";
 import { registerAddendumRoutes } from "./routes/addenda.js"
 import { config } from "../config/index.js";
 
@@ -21,6 +23,7 @@ export interface Repositories {
 
 export interface Services {
   addenda?: AddendumService;
+  attachments?: AttachmentService;
 }
 
 export function buildApp(repositories: Repositories, services: Services = {}) {
@@ -120,6 +123,9 @@ export function buildApp(repositories: Repositories, services: Services = {}) {
   );
   if(services.addenda) {
     registerAddendumRoutes(app, services.addenda);
+  }
+  if (services.attachments) {
+    registerAttachmentRoutes(app, services.attachments);
   }
   return app;
 }
